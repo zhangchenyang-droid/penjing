@@ -79,6 +79,13 @@
     .pop { position: fixed; z-index: 30; pointer-events: none; transform: translate(-50%, -50%); font-weight: 900; font-size: 15px; color: #7a5a2a;
         text-shadow: 0 2px 0 #fff; animation: pop 1.2s ease-out forwards; white-space: nowrap; }
     .pop.big { font-size: 19px; color: #5a8a3a; }
+    #winCv { position: fixed; inset: 0; z-index: 16; width: 100%; height: 100%; pointer-events: none; }   /* 常驻（不用 display 切换，免得显示那一帧新建图层卡一下） */
+    #winCv.on { pointer-events: auto; }
+    .seal.up { z-index: 17; transition: left .55s cubic-bezier(.3, 1.4, .5, 1), top .55s cubic-bezier(.3, 1.4, .5, 1), opacity .3s; }
+    #gardenBtn.got { animation: gotIt .5s cubic-bezier(.3, 1.6, .5, 1); }
+    @keyframes gotIt { 30% { transform: scale(1.35); box-shadow: 0 0 0 8px rgba(255, 210, 110, .55); } }
+    .chip.fresh { animation: fresh 1.2s ease-out 2; }
+    @keyframes fresh { 40% { box-shadow: 0 0 0 5px rgba(240, 190, 70, .7); transform: scale(1.06); } }
     @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 100% { opacity: 0; transform: translate(-50%, -160%); } }
 </style>
 </head>
@@ -96,6 +103,7 @@
     <div class="meter"><div class="t"><span>完成度</span><b id="simTxt">0%</b></div><div class="bar"><i id="simBar"></i><u style="left:55%"></u><u style="left:75%"></u><u style="left:88%"></u></div></div>
     <button class="btn green" id="doneBtn">完成</button>
 </div>
+<canvas id="winCv"></canvas>
 <div class="card-bg" id="cardBg"><div class="card" id="card"></div></div>
 
 <script>
@@ -989,9 +997,9 @@ function celebrate() {
         setTimeout(() => { tone(90, 0.18, 0.08, 'sine', 0, 60); noise(0.08, 300, 0.05); if (navigator.vibrate) navigator.vibrate(25); }, 300);
     }, 650);
     document.querySelector('.meter').classList.add('perfect'); $('doneBtn').classList.add('ready');
-    setTimeout(() => { if (tree && tree.perfect) popText(W / 2, H * 0.5, '修成了！点「完成」收进园子', 'big'); }, 1300);
+    cele.winAt = Math.max(cele.tidyUntil, T + 1.5);   // 收尾修剪 + 金光扫完 → 变成奖励品
 }
-function clearCele() { cele = null; const s2 = $('seal'); if (s2) s2.remove(); document.querySelector('.meter').classList.remove('perfect'); $('doneBtn').classList.remove('ready'); }
+function clearCele() { cele = null; endWin(); const s2 = $('seal'); if (s2) s2.remove(); document.querySelector('.meter').classList.remove('perfect'); $('doneBtn').classList.remove('ready'); }
 let sweepCv = document.createElement('canvas');
 function drawCeleBack() {
     if (!cele) return;
@@ -1026,8 +1034,109 @@ function drawCeleFront(dt) {
         ctx.fillStyle = `rgba(255,250,225,${a})`; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 0.7, 0, TAU); ctx.fill();
     }
 }
+// ---------- 修成后：整盆变成奖励品——背景压暗、外发光、放大、光芒转动；点任意位置飞进「园子」→ 打开选盆 ----------
+let win = null;
+const winCv = $('winCv'), winG = winCv.getContext('2d');
+const easeOutBack = x => 1 + 2.2 * (x - 1) ** 3 + 1.2 * (x - 1) ** 2, easeInOut = x => x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+function startWin() {
+    if (tree.dirty) renderTreeCache();
+    phase = 'win'; simVal = similarity(tree); renderMeter();
+    const st = Math.max(1, starsOf(simVal));
+    // 整盆（盆+架+树）拍成一张透明图；外发光预先烘一张，播放时只贴图，不逐帧模糊
+    const b = tree.box, x0 = Math.max(0, Math.min(U2X(b.x0), ROOT_X - 0.7 * S) - 24), x1 = Math.min(W, Math.max(U2X(b.x1), ROOT_X + 0.7 * S) + 24), y0 = Math.max(0, U2Y(b.y0) - 24), y1 = Math.min(H, TABLE_Y + 6);
+    const bw = x1 - x0, bh = y1 - y0, pad = 40, img = document.createElement('canvas'); img.width = (bw + pad * 2) * DPR; img.height = (bh + pad * 2) * DPR;
+    const g = img.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, (pad - x0) * DPR, (pad - y0) * DPR);
+    const real = ctx; ctx = g; drawPot(); ctx = real; g.setTransform(1, 0, 0, 1, (pad - x0) * DPR, (pad - y0) * DPR); g.drawImage(treeCv, 0, 0);
+    const GS = 0.25, glow = document.createElement('canvas'); glow.width = Math.ceil(img.width * GS); glow.height = Math.ceil(img.height * GS);   // 光晕本来就是糊的，用 1/4 分辨率烘，快很多
+    const gg = glow.getContext('2d'), off = glow.width * 2;
+    gg.shadowColor = 'rgba(255,214,120,1)'; gg.shadowBlur = 22 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
+    const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
+    win = { t: 0, img, glow, pad, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st };
+    if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
+    const seal = $('seal'); if (seal) seal.classList.add('up');
+    tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
+}
+function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; winCv.classList.remove('on'); }
+winCv.addEventListener('pointerdown', () => {
+    if (!win || win.fly >= 0 || win.t < 0.7) return;
+    audio(); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
+    const seal = $('seal'); if (seal) seal.animate([{ opacity: 0.93 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
+    noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
+});
+function drawWin(dt) {
+    if (!win) return;
+    win.t += dt; if (win.fly >= 0) win.fly += dt;
+    const g = winG, t = win.t, FLY = 0.75;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H);
+    // 进场：0.6 秒放大到画面中央（带一点回弹）
+    const k = easeOutBack(clamp(t / 0.6, 0, 1)), kv = clamp(t / 0.45, 0, 1);
+    let sc = 1 + (win.z - 1) * k, x = win.cx + (win.tx - win.cx) * k, y = win.cy + (win.ty - win.cy) * k + Math.sin(t * 1.6) * 3 * kv, veil = 0.62 * kv, rot = 0;
+    if (win.fly >= 0) {
+        // 飞向「园子」：沿弧线缩小飞过去，背景亮回来
+        const q = easeInOut(clamp(win.fly / FLY, 0, 1)), ex = win.fx, ey = win.fy, mx = (x + ex) / 2 - 40, my = Math.min(y, ey) - 60;
+        const nx = (1 - q) ** 2 * x + 2 * (1 - q) * q * mx + q * q * ex, ny = (1 - q) ** 2 * y + 2 * (1 - q) * q * my + q * q * ey;
+        x = nx; y = ny; sc = sc * (1 - q) + (40 / win.bh) * q; veil *= 1 - q; rot = Math.sin(q * Math.PI) * -0.15;
+        if (win.fly >= FLY && !win.arrived) arrive();
+    }
+    g.fillStyle = `rgba(18,14,10,${veil})`; g.fillRect(0, 0, W, H);
+    const fade = win.fly >= 0 ? 1 - clamp(win.fly / 0.35, 0, 1) : 1;
+    // 背后的光芒：慢慢转
+    if (fade > 0) {
+        const R = Math.max(win.bw, win.bh) * sc * 0.85, a = 0.22 * kv * fade;
+        g.save(); g.translate(x, y); g.rotate(t * 0.25);
+        const rg = g.createRadialGradient(0, 0, 0, 0, 0, R); rg.addColorStop(0, `rgba(255,226,150,${a * 1.6})`); rg.addColorStop(0.45, `rgba(255,214,120,${a})`); rg.addColorStop(1, 'rgba(255,214,120,0)');
+        g.fillStyle = rg; for (let i = 0; i < 12; i++) { const a0 = i / 12 * TAU; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R, a0, a0 + TAU / 30); g.closePath(); g.fill(); }
+        g.beginPath(); g.arc(0, 0, R * 0.55, 0, TAU); g.fill();
+        g.restore();
+    }
+    // 外发光 + 整盆
+    g.save(); g.translate(x, y); g.rotate(rot); g.scale(sc, sc); g.translate(-win.bw / 2 - win.pad, -win.bh / 2 - win.pad);
+    const iw = win.img.width / DPR, ih = win.img.height / DPR;
+    g.globalAlpha = (0.75 + 0.25 * Math.sin(t * 3)) * kv; g.globalCompositeOperation = 'lighter'; g.drawImage(win.glow, 0, 0, iw, ih);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.drawImage(win.img, 0, 0, iw, ih);
+    g.restore();
+    // 闪烁的小星
+    if (fade > 0) for (let i = 0; i < 14; i++) {
+        const h1 = hash(i * 13 + 1), h2 = hash(i * 7 + 3), ph = (t * (0.5 + h1 * 0.5) + h2) % 1, a = Math.sin(ph * Math.PI) * kv * fade;
+        const sx = x + (h1 - 0.5) * win.bw * sc * 1.15, sy = y + (h2 - 0.6) * win.bh * sc * 1.05, r = 3 + hash(i) * 4;
+        g.fillStyle = `rgba(255,240,190,${a})`; g.beginPath(); g.moveTo(sx, sy - r * 2); g.quadraticCurveTo(sx, sy, sx + r * 2, sy); g.quadraticCurveTo(sx, sy, sx, sy + r * 2); g.quadraticCurveTo(sx, sy, sx - r * 2, sy); g.quadraticCurveTo(sx, sy, sx, sy - r * 2); g.fill();
+    }
+    // 文字：造型 · 树种、星级、提示
+    const ta = clamp((t - 0.5) / 0.4, 0, 1) * fade;
+    if (ta > 0) {
+        const f = tree.form, sp = tree.spec, top = y - win.bh * sc / 2;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(`${f.name} · ${sp.name}`, W / 2, Math.max(70, top - 34));
+        g.fillStyle = `rgba(255,200,80,${ta})`; g.font = '26px sans-serif'; g.fillText('★'.repeat(win.st) + '☆'.repeat(3 - win.st), W / 2, Math.max(104, top - 2));
+        if (win.fly < 0 && t > 1) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - 1) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
+    }
+    // 印章跟着放大后的树
+    const seal = $('seal'); if (seal && win.fly < 0) { seal.style.left = clamp(x + win.bw * sc * 0.36, 50, W - 50) + 'px'; seal.style.top = clamp(y - win.bh * sc * 0.1, 80, H - 80) + 'px'; }
+}
+function arrive() {
+    win.arrived = true; const { reward, firstForm, nextF } = commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
+    const gb = $('gardenBtn'); gb.classList.remove('got'); void gb.offsetWidth; gb.classList.add('got');
+    sfx.coin(); if (navigator.vibrate) navigator.vibrate(20); renderHud();
+    popText(W / 2, H * 0.32, `+💰${reward} · 摆进园子了`, 'big');
+    if (firstForm && nextF) setTimeout(() => popText(W / 2, H * 0.4, `解锁新造型：${nextF.name}`, 'big'), 350);
+    setTimeout(() => {
+        clearCele(); $('ref').classList.add('hidden'); phase = 'done'; pickF = null; setupCard();
+        const el = $('card').querySelector(`[data-f="${fid}"]`); if (el) { el.classList.add('fresh'); el.scrollIntoView({ block: 'nearest' }); }
+    }, 950);
+}
 const starsOf = v => v >= 0.88 ? 3 : v >= 0.75 ? 2 : v >= 0.55 ? 1 : 0;
 
+// 记账：星级、金币、图鉴最佳作品、园子
+function commitWork(st) {
+    const f = tree.form, sp = tree.spec;
+    const reward = Math.round(20 * st * (1 + (sp.rar - 1) * 0.5) * (tree.bloom || tree.fruit ? 1.3 : 1));
+    const firstForm = !G.forms[f.id], idx = FORMS.indexOf(f), nextF = FORMS[idx + 1];
+    G.forms[f.id] = Math.max(G.forms[f.id] || 0, st); G.coins += reward;
+    const sim100 = Math.round(simVal * 100), old = (G.best = G.best || {})[f.id];
+    if (!old || st > old.stars || (st === old.stars && sim100 >= old.sim)) G.best[f.id] = { img: snapshot(440, 520), stars: st, sim: sim100, species: sp.id, bloom: !!(tree.bloom || tree.fruit), date: Date.now() };
+    const img = snapshot(); G.garden.unshift({ img, form: f.id, species: sp.id, stars: st, bloom: tree.bloom || tree.fruit }); if (G.garden.length > 30) G.garden.pop();
+    save(); return { reward, firstForm, nextF, img };
+}
 // 完成：拍一张作品照
 function snapshot(CW = 220, CH = 260) {
     const b = tree.box, c = document.createElement('canvas'); c.width = CW; c.height = CH;
@@ -1048,13 +1157,8 @@ function finish() {
     audio(); simVal = similarity(tree); renderMeter();
     const st = starsOf(simVal), f = tree.form, sp = tree.spec;
     if (!st) { sfx.dull(); popText(W / 2, H * 0.45, '还不太像，再修修（完成度至少 55%）', ''); return; }
-    const reward = Math.round(20 * st * (1 + (sp.rar - 1) * 0.5) * (tree.bloom || tree.fruit ? 1.3 : 1));
-    const firstForm = !G.forms[f.id], idx = FORMS.indexOf(f), nextF = FORMS[idx + 1];
-    G.forms[f.id] = Math.max(G.forms[f.id] || 0, st); G.coins += reward;
-    const sim100 = Math.round(simVal * 100), old = (G.best = G.best || {})[f.id];
-    if (!old || st > old.stars || (st === old.stars && sim100 >= old.sim)) G.best[f.id] = { img: snapshot(440, 520), stars: st, sim: sim100, species: sp.id, bloom: !!(tree.bloom || tree.fruit), date: Date.now() };
-    const img = snapshot(); G.garden.unshift({ img, form: f.id, species: sp.id, stars: st, bloom: tree.bloom || tree.fruit }); if (G.garden.length > 30) G.garden.pop();
-    save(); renderHud(); sfx.done(); setTimeout(sfx.coin, 300);
+    const { reward, firstForm, nextF, img } = commitWork(st);
+    renderHud(); sfx.done(); setTimeout(sfx.coin, 300);
     phase = 'done';
     showCard(`<div class="ctop"><button class="btn green" id="cNext">下一盆</button></div>
         <h2>${f.name} · ${sp.name}</h2><div class="stars">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</div>
@@ -1178,7 +1282,7 @@ function resize() {
     DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cvs.width = W * DPR; cvs.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     const top = document.querySelector('.hud').getBoundingClientRect().bottom, bot = document.querySelector('.bottom').getBoundingClientRect().top;
     S = Math.min(W * 0.4, (bot - top) * 0.3); ROOT_X = W / 2; TABLE_Y = bot - 0.42 * S; ROOT_Y = TABLE_Y - 0.36 * S;
-    clearLitter();
+    clearLitter(); winCv.width = W * DPR; winCv.height = H * DPR;
     if (tree) startRound(tree.form.id, tree.spec.id);
 }
 addEventListener('resize', resize); resize();
@@ -1188,16 +1292,17 @@ function frame(now) {
     let pdt = dt; if (hitStop > 0) { hitStop -= dt; pdt = 0; }   // 一刀多枝时顿一下
     updateTree(dt); updatePieces(pdt); sway.t += pdt;
     drawScene();
-    drawPot();
+    if (!(win && win.gone)) drawPot();
     ctx.drawImage(litterCv, 0, 0, W, H);
     drawCeleBack();
-    if (tree) {
+    if (cele && cele.winAt && !win && T >= cele.winAt && phase === 'live') startWin();
+    if (tree && !(win && win.gone)) {
         // 挨一刀后的弹簧晃动：以盆口为轴，越往上晃得越多
         const k = sway.A * Math.exp(-9 * sway.t) * Math.sin(20 * sway.t) * sway.dir;
         if (Math.abs(k) > 0.0005) { ctx.save(); ctx.transform(1, 0, -k, 1, k * ROOT_Y, 0); ctx.drawImage(treeCv, 0, 0, W, H); ctx.restore(); } else ctx.drawImage(treeCv, 0, 0, W, H);
     }
     drawCeleFront(pdt);
-    drawPieces(); drawTrail();
+    drawPieces(); drawTrail(); drawWin(dt);
     requestAnimationFrame(frame);
 }
 renderHud();
@@ -1208,7 +1313,7 @@ if (!G.seen) {
         ① 小树苗会自己<b>一边长一边分叉</b><br>
         ② <b>手指划过枝条</b>就能剪，剪掉的分叉<b>不会再往那边长</b><br>
         ③ 照着<b>右上角的剪影</b>，把它修成那个造型<br>
-        ④ 完成度 55% / 75% / 88% 分别是 1~3 星；叶层全留住、多余的全剪掉就是 100%，点「完成」收进园子<br>
+        ④ 完成度 55% / 75% / 88% 分别是 1~3 星；叶层全留住、多余的全剪掉就是 100%，修成后点屏幕就收进园子（没到 100% 也能点「完成」先交）<br>
         <span style="opacity:.7;font-size:13px">每完成一个造型解锁下一个；神秘种子里有樱花、紫藤</span></div>`);
     $('cGo').onclick = () => { G.seen = true; save(); audio(); setupCard(); };
 } else setupCard();
