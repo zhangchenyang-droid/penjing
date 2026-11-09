@@ -1071,7 +1071,7 @@ function drawWin(dt) {
     g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H);
     // 进场：0.6 秒放大到画面中央（带一点回弹）
     const k = easeOutBack(clamp(t / 0.6, 0, 1)), kv = clamp(t / 0.45, 0, 1);
-    let sc = 1 + (win.z - 1) * k, x = win.cx + (win.tx - win.cx) * k, y = win.cy + (win.ty - win.cy) * k + Math.sin(t * 1.6) * 3 * kv, veil = 0.62 * kv, rot = 0;
+    let sc = 1 + (win.z - 1) * k, x = win.cx + (win.tx - win.cx) * k, y = win.cy + (win.ty - win.cy) * k + Math.sin(t * 1.6) * 3 * kv, veil = 0.7 * kv, rot = 0;
     if (win.fly >= 0) {
         // 飞向「园子」：沿弧线缩小飞过去，背景亮回来
         const q = easeInOut(clamp(win.fly / FLY, 0, 1)), ex = win.fx, ey = win.fy, mx = (x + ex) / 2 - 40, my = Math.min(y, ey) - 60;
@@ -1081,26 +1081,27 @@ function drawWin(dt) {
     }
     g.fillStyle = `rgba(18,14,10,${veil})`; g.fillRect(0, 0, W, H);
     const fade = win.fly >= 0 ? 1 - clamp(win.fly / 0.35, 0, 1) : 1;
-    // 背后的光芒：慢慢转
+    // 背后一轮"圆窗"：淡淡的月白圆光 + 一圈细金线（替代转动的光芒，更素雅）
     if (fade > 0) {
-        const R = Math.max(win.bw, win.bh) * sc * 0.85, a = 0.22 * kv * fade;
-        g.save(); g.translate(x, y); g.rotate(t * 0.25);
-        const rg = g.createRadialGradient(0, 0, 0, 0, 0, R); rg.addColorStop(0, `rgba(255,226,150,${a * 1.6})`); rg.addColorStop(0.45, `rgba(255,214,120,${a})`); rg.addColorStop(1, 'rgba(255,214,120,0)');
-        g.fillStyle = rg; for (let i = 0; i < 12; i++) { const a0 = i / 12 * TAU; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, R, a0, a0 + TAU / 30); g.closePath(); g.fill(); }
-        g.beginPath(); g.arc(0, 0, R * 0.55, 0, TAU); g.fill();
-        g.restore();
+        const R = Math.min(W * 0.44, Math.max(win.bw, win.bh) * sc * 0.42), a = kv * fade, cy = y - win.bh * sc * 0.1;
+        const rg = g.createRadialGradient(x, cy, R * 0.2, x, cy, R * 1.25);
+        rg.addColorStop(0, `rgba(255,244,214,${0.2 * a})`); rg.addColorStop(0.75, `rgba(255,236,196,${0.13 * a})`); rg.addColorStop(0.8, `rgba(255,232,186,${0.05 * a})`); rg.addColorStop(1, 'rgba(255,232,186,0)');
+        g.fillStyle = rg; g.beginPath(); g.arc(x, cy, R * 1.25, 0, TAU); g.fill();
+        g.strokeStyle = `rgba(232,200,130,${0.45 * a})`; g.lineWidth = 1.2; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke();
+        g.strokeStyle = `rgba(232,200,130,${0.18 * a})`; g.lineWidth = 1; g.beginPath(); g.arc(x, cy, R + 6, 0, TAU); g.stroke();
     }
     // 外发光 + 整盆
     g.save(); g.translate(x, y); g.rotate(rot); g.scale(sc, sc); g.translate(-win.bw / 2 - win.pad, -win.bh / 2 - win.pad);
     const iw = win.img.width / DPR, ih = win.img.height / DPR;
-    g.globalAlpha = (0.75 + 0.25 * Math.sin(t * 3)) * kv; g.globalCompositeOperation = 'lighter'; g.drawImage(win.glow, 0, 0, iw, ih);
+    g.globalAlpha = (0.6 + 0.12 * Math.sin(t * 1.8)) * kv; g.globalCompositeOperation = 'lighter'; g.drawImage(win.glow, 0, 0, iw, ih);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.drawImage(win.img, 0, 0, iw, ih);
     g.restore();
-    // 闪烁的小星
-    if (fade > 0) for (let i = 0; i < 14; i++) {
-        const h1 = hash(i * 13 + 1), h2 = hash(i * 7 + 3), ph = (t * (0.5 + h1 * 0.5) + h2) % 1, a = Math.sin(ph * Math.PI) * kv * fade;
-        const sx = x + (h1 - 0.5) * win.bw * sc * 1.15, sy = y + (h2 - 0.6) * win.bh * sc * 1.05, r = 3 + hash(i) * 4;
-        g.fillStyle = `rgba(255,240,190,${a})`; g.beginPath(); g.moveTo(sx, sy - r * 2); g.quadraticCurveTo(sx, sy, sx + r * 2, sy); g.quadraticCurveTo(sx, sy, sx, sy + r * 2); g.quadraticCurveTo(sx, sy, sx - r * 2, sy); g.quadraticCurveTo(sx, sy, sx, sy - r * 2); g.fill();
+    // 几点慢慢上浮的微光
+    if (fade > 0) for (let i = 0; i < 7; i++) {
+        const h1 = hash(i * 13 + 1), h2 = hash(i * 7 + 3), ph = (t * (0.12 + h1 * 0.08) + h2) % 1, a = Math.sin(ph * Math.PI) * kv * fade * 0.8;
+        const sx = x + (h1 - 0.5) * win.bw * sc * 0.9 + Math.sin(t * 0.8 + i) * 6, sy = y + win.bh * sc * (0.3 - ph * 0.8), r = 1 + hash(i) * 0.8;
+        const gl = g.createRadialGradient(sx, sy, 0, sx, sy, r * 4); gl.addColorStop(0, `rgba(255,240,200,${a})`); gl.addColorStop(1, 'rgba(255,230,170,0)');
+        g.fillStyle = gl; g.beginPath(); g.arc(sx, sy, r * 4, 0, TAU); g.fill();
     }
     // 文字：造型 · 树种、星级、提示
     const ta = clamp((t - 0.5) / 0.4, 0, 1) * fade;
