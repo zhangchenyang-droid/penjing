@@ -107,7 +107,6 @@
 <div class="ref hidden" id="ref"><canvas id="refCv" width="188" height="200"></canvas><div id="refName">目标</div></div>
 <div class="bottom">
     <div class="meter"><div class="t"><span>完成度</span><b id="simTxt">0%</b></div><div class="bar"><i id="simBar"></i><u style="left:55%"></u><u style="left:75%"></u><u style="left:88%"></u></div></div>
-    <button class="btn ghost" id="autoBtn" style="font-size:14px;padding:12px 12px">一键完成</button>
     <button class="btn green" id="doneBtn">完成</button>
 </div>
 <canvas id="winCv"></canvas>
@@ -1341,23 +1340,6 @@ function gardenCard() {
 $('bookBtn').onclick = () => { audio(); bookCard(); };
 $('gardenBtn').onclick = () => { audio(); gardenCard(); };
 $('doneBtn').onclick = finish;
-// 一键完成（看效果用）：树直接长满 → 把叶层外多余的枝从根上剪掉（会照常掉落）→ 圆满
-$('autoBtn').onclick = () => {
-    if (!tree || phase !== 'live' || tree.perfect) return;
-    audio();
-    for (let k = 0; k < 120 && !tree.mature; k++) updateTree(0.1);
-    for (let pass = 0; pass < 3; pass++) {
-        const N = tree.nodes; analyze(tree);
-        for (const n of N) {
-            if (!n.alive || n.trunk || n.scaf || n.cut || n.pad >= 0 || n.p < 0) continue;
-            const q = N[n.p]; if (!(q.trunk || q.scaf || q.pad >= 0)) continue;
-            const mx = (q.x + n.x) / 2, my = (q.y + n.y) / 2, dx = (n.y - q.y) * 0.3, dy = (q.x - n.x) * 0.3;
-            cutAlong(tree, mx - dx, my - dy, mx + dx, my + dy, 0, 0);
-        }
-        analyze(tree); simVal = similarity(tree); if (simVal >= 0.995) break;
-    }
-    renderTreeCache(); simVal = Math.max(simVal, 1); renderMeter();
-};
 
 // ============================================================
 // 输入：手指划过 = 剪刀
