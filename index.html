@@ -556,7 +556,7 @@ function flashMeter(k) { const m = document.querySelector('.meter'); m.classList
 function newBit(t, it, vx, vy) {
     const sp = t.spec, kind = sp.needle ? 'needle' : sp.petals ? 'petal' : 'leaf';
     // 不同东西落法不同：松针细重（直落、打转）；樱花瓣最轻（飘得久）；一般叶子介于两者之间
-    const P = kind === 'needle' ? { kx: 1.6, vt: 170, amp: 0, w: 0 } : kind === 'petal' ? { kx: 2.6, vt: 45, amp: rand(26, 40), w: rand(2.6, 3.4) } : { kx: 2.2, vt: rand(60, 80), amp: rand(18, 30), w: rand(2.2, 3) };
+    const P = kind === 'needle' ? { kx: 1.4, vt: 380, amp: 0, w: 0 } : kind === 'petal' ? { kx: 2.2, vt: rand(110, 140), amp: rand(16, 24), w: rand(3, 3.8) } : { kx: 1.8, vt: rand(190, 240), amp: rand(10, 16), w: rand(3, 3.8) };   // 终端速度提高：叶子落得干脆，只带一点摆动
     return Object.assign({ x: it.x, y: it.y, vx, vy, a0: it.a, rot: it.a, spin: kind === 'needle' ? rand(-10, 10) : rand(-3, 3), len: it.len, tone: it.tone, sp, kind, t: 0, ph: rand(0, TAU), life: 14, depth: rand(1, 14), flat: 1 }, P);
 }
 function segHit(ax, ay, bx, by, cx, cy, dx, dy) {
@@ -804,7 +804,7 @@ function updatePieces(dt) {
             if (b.amp) {
                 b.ph += b.w * dt; const sn = Math.sin(b.ph), cs = Math.cos(b.ph);
                 b.x += cs * b.amp * b.w * dt * settle;
-                b.y += (b.vy * (0.55 + 0.45 * Math.abs(cs)) - b.vy) * dt * settle;
+                b.y += (b.vy * (0.8 + 0.2 * Math.abs(cs)) - b.vy) * dt * settle;
                 b.rot = b.a0 + b.spin * b.t * (1 - settle) + sn * 0.7 * settle;
                 b.swayV = cs * b.amp * b.w * settle;   // 落地时带着的横向速度
             } else b.rot += b.spin * dt;
