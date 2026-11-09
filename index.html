@@ -1065,10 +1065,10 @@ function makeSeal(w, h) {
 // 印章位置：盆的左下或右下，哪边空就盖哪边（悬崖式枝叶垂在右边就盖左边）；不歪，规规矩矩
 function sealSpot(z) {
     const w = 22 / z * 1.2, h = w * 2.1, standH = tree.form.stand ? 0.62 * S : 0, ph = TABLE_Y - ROOT_Y - standH;
-    // 候选：先试盆口上方靠盆边的空处（画面留白里落款），再试盆身两侧
+    // 候选：先试盆外侧、和盆口齐平的位置（离盆边留一点空）；被枝叶挡住再试盆口上方
     const cands = [];
-    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * 0.5 * S, y: ROOT_Y - h * 0.5 - 0.12 * S, pri: 0 });
-    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * (0.6 * S + w * 0.5 + 8), y: ROOT_Y + ph * 0.62, pri: 1 });
+    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * (0.6 * S + w * 0.5 + 22 / z), y: ROOT_Y + h * 0.15 });
+    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * 0.5 * S, y: ROOT_Y - h * 0.5 - 0.12 * S });
     const busy = q => { let n = 0; for (const nd of tree.nodes) if (nd.alive && Math.abs(nd.x - q.x) < w * 0.5 + 16 && Math.abs(nd.y - q.y) < h * 0.5 + 16) n++; return n; };
     for (const q of cands) q.n = busy(q);
     const free = cands.filter(q => q.n === 0), q = free.length ? free[0] : cands.sort((p1, p2) => p1.n - p2.n)[0];
