@@ -67,7 +67,7 @@
         border: 3px solid #e6d6b8; box-shadow: 0 16px 40px rgba(0, 0, 0, .25); animation: cardIn .4s cubic-bezier(.3, 1.5, .5, 1); scrollbar-width: none; }
     .card::-webkit-scrollbar { display: none; }
     @keyframes cardIn { from { transform: scale(.7); opacity: 0; } }
-    .ctop { position: sticky; top: 0; z-index: 2; display: flex; justify-content: flex-end; gap: 8px; margin: -2px -4px 4px 0; }
+    .ctop { position: sticky; top: -14px; z-index: 2; display: flex; justify-content: flex-end; gap: 8px; margin: -14px -16px 4px; padding: 12px 16px 8px; background: #fbf7ef; border-radius: 20px 20px 0 0; }   /* 实底：滚动时内容从下面穿过，不和按钮叠在一起 */
     .card h2 { margin: 0 0 4px; font-size: 21px; }
     .card h3 { margin: 10px 0 6px; font-size: 14px; text-align: left; opacity: .8; }
     .card .sub { font-size: 14px; line-height: 1.7; opacity: .9; }
@@ -96,6 +96,7 @@
     @keyframes gotIt { 30% { transform: scale(1.35); box-shadow: 0 0 0 8px rgba(255, 210, 110, .55); } }
     .tabs { display: flex; gap: 6px; margin: 4px 0; } .tabs button { flex: 1; border: 2px solid #e6d6b8; background: #fff; border-radius: 12px; padding: 7px 0; font: 800 14px inherit; font-family: inherit; color: #6a5a44; }
     .tabs button.on { background: #5aa83e; border-color: #5aa83e; color: #fff; }
+    #cFree.glowy { animation: doneBob 1s ease-in-out infinite; }
     .chip.fresh, .garden .fresh { animation: fresh 1.2s ease-out 2; }
     @keyframes fresh { 40% { box-shadow: 0 0 0 5px rgba(240, 190, 70, .7); transform: scale(1.06); } }
     @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 100% { opacity: 0; transform: translate(-50%, -160%); } }
@@ -1155,7 +1156,7 @@ function startWin(perfect = true) {
     gg.shadowColor = 'rgba(255,208,120,1)'; gg.shadowBlur = 14 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     const seal = sealSpot(z, free ? ['自', '在'] : ['圆', '满']);
-    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free, beauty, bald,
+    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free, beauty, bald, name: free ? (bald ? '光杆一根' : autoName(tree, bInfo)) : '',
         starAt: 0.6, sealAt: free ? 0.7 : 0.6 + 2 * 0.17 + 0.18, tapAt: free ? 0.7 + 0.75 : perfect ? 0.6 + 2 * 0.17 + 0.18 + 0.75 : 0.6 + 2 * 0.17 + 0.45, sparks: [] };   // 星星哒哒哒连着出，最后一颗刚落定印章就落下
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
@@ -1231,7 +1232,7 @@ function drawWin(dt) {
     if (ta > 0) {
         const f = tree.form, sp = tree.spec, top = y - win.bh * sc / 2;
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(`${f.name} · ${sp.name}`, W / 2, Math.max(64, top - 50));
+        g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(win.free ? `「${win.name}」 · ${sp.name}` : `${f.name} · ${sp.name}`, W / 2, Math.max(64, top - 50));
         if (!win.free) drawStars(g, t, Math.max(100, top - 14), fade);
         else { const q = clamp((t - 0.5) / 0.6, 0, 1), v = Math.round(win.beauty * (1 - (1 - q) ** 3)); g.fillStyle = `rgba(255,214,120,${ta})`; g.font = '900 20px "Songti SC", "STKaiti", serif'; g.fillText(`美观 ${v} · ${beautyWord(v)}`, W / 2, Math.max(100, top - 14)); }
         if (win.fly < 0 && t > win.tapAt) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - win.tapAt) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
@@ -1268,11 +1269,14 @@ function drawStars(g, t, cy, fade) {
     g.globalCompositeOperation = 'source-over';
 }
 function arrive() {
-    win.arrived = true; const { reward, firstForm, nextF } = win.free ? commitFree() : commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
+    const starsBefore = starTotal();
+    win.arrived = true; const { reward, firstForm, nextF } = win.free ? commitFree() : commitWork(win.st), fid = tree.form.id;
+    const justOpen = starsBefore < FREE_NEED && freeOpen();   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
     const gb = $('gardenBtn'); gb.classList.remove('got'); void gb.offsetWidth; gb.classList.add('got');
     sfx.coin(); if (navigator.vibrate) navigator.vibrate(20); renderHud();
     popText(W / 2, H * 0.32, win.free ? `摆进园子了 · 可卖 💰${priceOf(G.garden[0])}` : `+💰${reward} · 摆进园子了`, 'big');
     if (firstForm && nextF) setTimeout(() => popText(W / 2, H * 0.4, `解锁新造型：${nextF.name}`, 'big'), 350);
+    if (justOpen) setTimeout(() => { popText(W / 2, H * 0.48, '🎨 自由创作解锁了！', 'big'); tone(659, 0.3, 0.04, 'triangle'); tone(988, 0.5, 0.04, 'triangle', 0.12); }, 700);
     setTimeout(() => {
         const wasFree = win.free; clearCele(); $('ref').classList.add('hidden'); phase = 'done'; pickF = null;
         if (wasFree) { gardenCard(0); return; }   // 自由创作：直接打开园子，看到刚摆进去的作品
@@ -1315,6 +1319,17 @@ function beautyOf(t) {
     const score = bald ? 5 : Math.round(clamp(100 * (0.25 * edge + 0.15 * layer + 0.12 * bal + 0.13 * bareS + 0.35 * full), 10, 100));
     return { A, score, bald, parts: { edge, layer, bal, bareS, full, nC, f } };
 }
+// 自由创作解锁：闯关攒够 20 颗星
+const FREE_NEED = 20, starTotal = () => Object.values(G.forms).reduce((a, b) => a + b, 0), freeOpen = () => starTotal() >= FREE_NEED;
+// 自动起名：看树坯（意象）+ 修出来的样子（形容），四个字；之后可以改
+function autoName(t, info) {
+    const P = info.parts || {}, pick = a => a[Math.floor(Math.random() * a.length)], sp = t.spec;
+    const noun = { zhi: ['擎天', '青云', '凌霄', '挺秀'], xie: ['探月', '迎客', '斜阳', '倚石'], qu: ['游龙', '卧云', '曲水', '盘龙'], shuang: ['双清', '比翼', '并蒂', '同心'],
+        wen: ['孤高', '文心', '清癯', '独立'], ban: ['探水', '横云', '出岫', '临渊'], xuan: ['飞瀑', '垂云', '悬泉', '倒挂'], cong: ['小林', '聚秀', '翠屏', '幽篁'] }[t.form.trunk] || ['小景'];
+    const adj = (t.bloom && (sp.petals || sp.raceme)) ? ['春信', '花影', '繁华'] : sp.id === 'maple' ? ['霜红', '丹霞', '醉秋'] : sp.id === 'ginkgo' ? ['金秋', '流金'] : sp.needle ? ['松风', '苍劲', '听涛']
+        : P.nC >= 4 ? ['叠翠', '层云', '重峦'] : P.f < 0.5 ? ['疏影', '清瘦', '淡远'] : P.bal < 0.8 ? ['临风', '斜照'] : ['苍翠', '蔚然', '含烟'];
+    return pick(adj) + pick(noun);
+}
 const beautyWord = v => v >= 85 ? '上品' : v >= 70 ? '佳作' : v >= 50 ? '小成' : v > 5 ? '习作' : '光杆';
 // 卖价：以买树坯的原价为准（直干坯免费，按 30 算）。修得美卖得比原价高，最多 2.5 倍；修丑了比原价还低；剪成光杆只值 2 块
 function priceOf(w) {
@@ -1325,7 +1340,7 @@ function priceOf(w) {
 }
 // 自由创作的作品：摆进园子（不直接给钱，想换钱就去园子里卖掉）
 function commitFree() {
-    G.garden.unshift({ img: snapshot(330, 390), form: 'free', trunk: tree.form.trunk, species: tree.spec.id, stars: 0, beauty: win.beauty, bald: win.bald, bloom: !!(tree.bloom || tree.fruit), date: Date.now() }); if (G.garden.length > 30) G.garden.pop();
+    G.garden.unshift({ img: snapshot(330, 390), form: 'free', trunk: tree.form.trunk, name: win.name, species: tree.spec.id, stars: 0, beauty: win.beauty, bald: win.bald, bloom: !!(tree.bloom || tree.fruit), date: Date.now() }); if (G.garden.length > 30) G.garden.pop();
     save(); return { reward: 0 };
 }
 // 记账：星级、金币、图鉴最佳作品、园子
@@ -1389,7 +1404,7 @@ function setupCard() {
     phase = 'setup';
     pickF = pickF || (FORMS.find(f => unlocked(f) && !G.forms[f.id]) || FORMS.filter(unlocked).pop()).id;
     pickS = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
-    const render = () => showCard(`<div class="ctop"><button class="btn" id="cFree">自由创作 🎨</button><button class="btn green" id="cPlant">种下 🌱</button></div>
+    const render = () => showCard(`<div class="ctop"><button class="btn ${freeOpen() ? '' : 'ghost'}" id="cFree">${freeOpen() ? '自由创作 🎨' : `🔒 自由创作 ⭐${starTotal()}/${FREE_NEED}`}</button><button class="btn green" id="cPlant">种下 🌱</button></div>
         <h2>下一盆</h2><div class="sub" style="font-size:12px">选一个造型、一种树。小树苗会自己长，你边看边剪，照右上角的剪影修</div>
         <h3>造型</h3><div class="chips">${FORMS.map(f => { const u = unlocked(f), b = G.forms[f.id]; return `<div class="chip ${pickF === f.id ? 'on' : ''} ${u ? '' : 'off'}" data-f="${f.id}">${formThumb(f)}${u ? f.name : '🔒'}<small>${b ? '★'.repeat(b) : u ? '新' : ''}</small></div>`; }).join('')}</div>
         <h3>树种</h3><div class="chips">${SPECIES.filter(s => G.species[s.id]).map(s => `<div class="chip ${pickS === s.id ? 'on' : ''}" data-s="${s.id}"><img src="${specIcon(s)}" style="width:100%">${s.name}<small>${'★'.repeat(s.rar)}</small></div>`).join('')}</div>
@@ -1405,7 +1420,8 @@ function setupCard() {
         });
         $('card').querySelectorAll('[data-s]').forEach(el => el.onclick = () => { pickS = el.dataset.s; render(); bind(); });
         $('cPlant').onclick = () => { audio(); hideCard(); startRound(pickF, pickS); };
-        $('cFree').onclick = () => { audio(); shopCard(() => setupCard()); };
+        $('cFree').onclick = () => { audio(); if (!freeOpen()) { sfx.dull(); popText(W / 2, H * 0.22, `集齐 ${FREE_NEED} 颗⭐解锁（现在 ${starTotal()}）`, 'big'); return; } shopCard(() => setupCard()); };
+        if (freeOpen() && !G.freeSeen) $('cFree').classList.add('glowy');
         $('cSeed').onclick = () => { if (G.coins < 60) return; G.coins -= 60; const s = rollSeed(); const isNew = !G.species[s.id]; G.species[s.id] = 1; pickS = s.id; save(); renderHud(); sfx.coin(); render(); bind(); popText(W / 2, H * 0.3, `开出了 ${s.name}${isNew ? '（新树种！）' : ''}`, 'big'); };
     };
     bind();
@@ -1446,7 +1462,7 @@ function gardenCard(fresh = -1, tab) {
     showCard(`<div class="ctop"><button class="btn" id="cClose">关闭</button></div><h2>我的盆景园</h2>
         <div class="tabs"><button class="${isFree ? '' : 'on'}" data-tab="level">闯关作品 ${nL}</button><button class="${isFree ? 'on' : ''}" data-tab="free">自由创作 ${nF}</button></div>
         <div class="sub" style="font-size:12px;margin:2px 0 0">${isFree ? '自己修的作品，点开可以按美观度卖掉' : '照剪影修成的作品，点开细看'}</div>
-        ${list.length ? `<div class="garden">${list.map(([w, i]) => `<div data-w="${i}" class="${i === fresh ? 'fresh' : ''}" style="cursor:pointer"><img src="${w.img}">${isFree ? `${(TRUNK[w.trunk] || { name: '自由创作' }).name}<br><span style="color:#b8862a">${w.bald ? '光杆' : '美观 ' + (w.beauty ?? 50)}</span> · 💰${priceOf(w)}` : `${FORM[w.form].name}<br><span style="color:#f0a020">${'★'.repeat(w.stars)}</span> ${SPEC[w.species].name}`}${w.bloom ? ' 🌸' : ''}</div>`).join('')}</div>`
+        ${list.length ? `<div class="garden">${list.map(([w, i]) => `<div data-w="${i}" class="${i === fresh ? 'fresh' : ''}" style="cursor:pointer"><img src="${w.img}">${isFree ? `${w.name ? '「' + w.name + '」' : (TRUNK[w.trunk] || { name: '自由创作' }).name}<br><span style="color:#b8862a">${w.bald ? '光杆' : '美观 ' + (w.beauty ?? 50)}</span> · 💰${priceOf(w)}` : `${FORM[w.form].name}<br><span style="color:#f0a020">${'★'.repeat(w.stars)}</span> ${SPEC[w.species].name}`}${w.bloom ? ' 🌸' : ''}</div>`).join('')}</div>`
             : `<div class="sub" style="margin-top:14px">${isFree ? '还没有自由创作的作品，去「商店」挑个树坯吧' : '还没有闯关作品，照剪影修好第一盆就会摆在这里'}</div>`}`);
     $('cClose').onclick = () => { if (phase === 'done') setupCard(); else hideCard(); };   // 刚收完作品：关掉园子就去选下一盆
     $('card').querySelectorAll('[data-tab]').forEach(el => el.onclick = () => { audio(); gardenCard(-1, el.dataset.tab); });
@@ -1457,11 +1473,12 @@ function workCard(i) {
     const w = G.garden[i]; if (!w) return gardenCard();
     const free = w.form === 'free', price = priceOf(w), T0 = free && TRUNK[w.trunk];
     showCard(`<div class="ctop"><button class="btn ghost" id="wBack">返回</button>${free ? `<button class="btn" id="wSell">卖出 💰${price}</button>` : ''}</div>
-        <h2>${FORM[w.form].name}${T0 ? ' · ' + T0.name : ''}</h2>
+        <h2>${free ? `「${w.name || '无题'}」 <span id="wRen" style="font-size:14px;cursor:pointer;opacity:.6">✏️改名</span>` : FORM[w.form].name}</h2>${free ? `<div class="sub" style="font-size:12px;margin-top:-2px">${T0 ? T0.name : '自由创作'}</div>` : ''}
         <img src="${w.img}" style="width:100%;max-width:300px;display:block;margin:6px auto;border-radius:16px;box-shadow:0 6px 18px rgba(60,40,20,.18)">
         <div class="sub">${SPEC[w.species].name}${w.bloom ? ' · 开花了 🌸' : ''} · ${free ? `美观 <b>${w.beauty ?? 50}</b> 分（${beautyWord(w.beauty ?? 50)}）` : '★'.repeat(w.stars) + '☆'.repeat(3 - w.stars)}
         ${free ? `<br><span style="font-size:12px;opacity:.7">${w.bald ? '剪成光杆了，只能当柴卖' : `树坯原价 💰${Math.max(30, (TRUNK[w.trunk] || {}).price || 0)}${(TRUNK[w.trunk] || {}).price ? '' : '（免费坯按 30 算）'}。修得美能卖到原价的 2.5 倍，修丑了就亏本`}</span>` : ''}</div>`);
     $('wBack').onclick = () => gardenCard(-1, free ? 'free' : 'level');
+    if (free) $('wRen').onclick = () => { const v = prompt('给这盆起个名字（最多 8 个字）', w.name || ''); if (v === null) return; const nm = v.trim().slice(0, 8); if (!nm) return; w.name = nm; save(); workCard(i); };
     if (free) { let armed = false; $('wSell').onclick = () => {
         if (!armed) { armed = true; $('wSell').textContent = `确定卖出？💰${price}`; return; }
         G.garden.splice(i, 1); G.coins += price; save(); renderHud(); sfx.coin(); popText(W / 2, H * 0.3, `卖出 +💰${price}`, 'big'); gardenCard(-1, 'free');
@@ -1474,14 +1491,17 @@ $('shopBtn').onclick = () => { if (phase === 'win') return; audio(); shopCard();
 function shopCard(back) {
     const sp = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
     showCard(`<div class="ctop">${back ? '<button class="btn ghost" id="sBack">返回</button>' : ''}<button class="btn" id="cClose">关闭</button></div><h2>商店</h2>
-        <h3>树坯 · 自由创作</h3><div class="sub" style="font-size:12px;text-align:left;margin:-4px 0 6px">买下的树坯可以一直用：没有剪影，想剪成什么样都行</div>
-        <div class="chips">${TRUNKS.map(t0 => `<div class="chip tchip" data-t="${t0.id}"><img src="${trunkPreview(t0, 120)}" style="width:100%">${t0.name}<small>${G.trunks[t0.id] ? '已拥有' : t0.price ? '💰' + t0.price : '免费'}</small>${G.trunks[t0.id] ? '<span class="own">✓</span>' : ''}</div>`).join('')}</div>
+        <h3>树坯 · 自由创作</h3>${freeOpen() ? `<div class="sub" style="font-size:12px;text-align:left;margin:-4px 0 6px">买下的树坯可以一直用：没有剪影，想剪成什么样都行</div>
+        <div class="chips">${TRUNKS.map(t0 => `<div class="chip tchip" data-t="${t0.id}"><img src="${trunkPreview(t0, 120)}" style="width:100%">${t0.name}<small>${G.trunks[t0.id] ? '已拥有' : t0.price ? '💰' + t0.price : '免费'}</small>${G.trunks[t0.id] ? '<span class="own">✓</span>' : ''}</div>`).join('')}</div>`
+        : `<div style="background:#fff;border-radius:14px;padding:12px;font-size:13px;font-weight:800;line-height:1.7">🔒 闯关集齐 <b style="color:#b8862a">${FREE_NEED}</b> 颗星解锁<br><span style="font-weight:600;opacity:.7">现在 ⭐${starTotal()}/${FREE_NEED} · 修到 100% 才有三星</span>
+            <div style="height:8px;border-radius:4px;background:#efe3cc;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, starTotal() / FREE_NEED * 100)}%;background:linear-gradient(90deg,#f2c94c,#e0a020)"></i></div></div>`}
         <h3>种子</h3>
         <div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px;text-align:left">
             <div style="font-size:28px">🎁</div><div style="flex:1;font-size:13px;font-weight:800">神秘种子<br><span style="font-weight:600;opacity:.65;font-size:12px">随机一种树，可能开出樱花、紫藤</span></div>
             <button class="btn" id="sSeed" ${G.coins < 60 ? 'disabled' : ''}>💰60</button></div>`);
     $('cClose').onclick = hideCard; if (back) $('sBack').onclick = back;
     $('card').querySelectorAll('[data-t]').forEach(el => el.onclick = () => { audio(); trunkCard(el.dataset.t, back); });
+    if (freeOpen() && !G.freeSeen) { G.freeSeen = true; save(); }
     $('sSeed').onclick = () => { if (G.coins < 60) return; G.coins -= 60; const s2 = rollSeed(); const isNew = !G.species[s2.id]; G.species[s2.id] = 1; pickS = s2.id; save(); renderHud(); sfx.coin(); shopCard(back); popText(W / 2, H * 0.3, `开出了 ${s2.name}${isNew ? '（新树种！）' : ''}`, 'big'); };
 }
 // 展开一个树坯：大图 + 说明；没买的显示价格和「买下」，买了的显示「用它创作」（可选树种）
