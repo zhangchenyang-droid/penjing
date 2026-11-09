@@ -1138,9 +1138,10 @@ function drawWin(dt) {
         const S2 = win.seal, lx = (clamp(x + (S2.x - win.cx) * sc, S2.w * sc / 2 + 14, W - S2.w * sc / 2 - 14) - x) / sc + win.bw / 2 + win.pad, ly = S2.y - win.cy + win.bh / 2 + win.pad, dt2 = t - win.sealed;
         if (!win.hit) {
             // 落下中：印章悬空（大一点、带影子），越落越近
-            const q = clamp(dt2 / 0.3, 0, 1), e = q * q, s3 = 1.5 - 0.5 * e;
-            g.save(); g.translate(lx, ly); g.globalAlpha = 0.25 * e; g.fillStyle = '#000'; g.fillRect(-S2.w / 2 + 3 * (1 - e), -S2.h / 2 + 8 * (1 - e), S2.w, S2.h);
-            g.scale(s3, s3); g.globalAlpha = 0.35 + 0.6 * e; g.drawImage(S2.img, -S2.w / 2, -S2.h / 2, S2.w, S2.h); g.restore();
+            // 从高处落下：先举高（很大、影子离得远），越落越快
+            const q = clamp(dt2 / 0.45, 0, 1), e = q * q * q, s3 = 2.8 - 1.8 * e;
+            g.save(); g.translate(lx, ly); g.globalAlpha = 0.12 + 0.18 * e; g.fillStyle = '#000'; g.fillRect(-S2.w / 2 + 14 * (1 - e), -S2.h / 2 + 34 * (1 - e), S2.w, S2.h);
+            g.translate(0, -30 * (1 - e)); g.scale(s3, s3); g.globalAlpha = Math.min(1, q * 3) * 0.95; g.drawImage(S2.img, -S2.w / 2, -S2.h / 2, S2.w, S2.h); g.restore();
         } else {
             // 压实后：印泥留在画上；抬起的印章淡淡离开
             const h2 = t - win.hit, ink = Math.min(1, 0.75 + h2 * 1.5);
@@ -1169,7 +1170,7 @@ function drawWin(dt) {
     // 印章跟着放大后的树
     // 放大落定后盖「圆满」印：印章悬着落下 → 压实（咚、整盆一震）→ 抬起，留下印泥
     if (!win.sealed && t >= 0.8 && win.fly < 0) { win.sealed = t; tone(1200, 0.12, 0.012, 'sine', 0, 900); }
-    if (win.sealed && !win.hit && t >= win.sealed + 0.3) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
+    if (win.sealed && !win.hit && t >= win.sealed + 0.45) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
 }
 function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
