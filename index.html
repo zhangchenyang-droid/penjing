@@ -94,7 +94,7 @@
     .seal.up { z-index: 17; }
     #gardenBtn.got { animation: gotIt .5s cubic-bezier(.3, 1.6, .5, 1); }
     @keyframes gotIt { 30% { transform: scale(1.35); box-shadow: 0 0 0 8px rgba(255, 210, 110, .55); } }
-    .chip.fresh { animation: fresh 1.2s ease-out 2; }
+    .chip.fresh, .garden .fresh { animation: fresh 1.2s ease-out 2; }
     @keyframes fresh { 40% { box-shadow: 0 0 0 5px rgba(240, 190, 70, .7); transform: scale(1.06); } }
     @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 100% { opacity: 0; transform: translate(-50%, -160%); } }
 </style>
@@ -976,6 +976,7 @@ function updateTree(dt) {
             if (!growing && !tree.mature) {
                 // 长好了：清掉剩下的"多余"吸引点，以后只有叶层会慢慢补
                 tree.mature = true; tree.pts = tree.pts.filter(p => p.pad >= 0);
+                if (tree.free) tree.fullA = beautyOf(tree).A;   // 长满时的叶量，算美观度时用来判断修了多少
                 popText(W / 2, H * 0.5, tree.free ? '长满了，随心修吧 ✂️ 修好点「完成」' : '长满了，照右上角的剪影修吧 ✂️', 'big'); sfx.grow(); tree.dirty = true;
             }
             if (a || b) tree.dirty = true;
@@ -1141,7 +1142,7 @@ function vividTree(w, h, ox, oy) {
 function startWin(perfect = true) {
     if (tree.dirty) renderTreeCache();
     phase = 'win'; if (perfect) { simVal = similarity(tree); renderMeter(); }
-    const free = !!tree.free, st = free ? 0 : perfect ? 3 : Math.max(1, starsOf(simVal));
+    const free = !!tree.free, st = free ? 0 : perfect ? 3 : Math.max(1, starsOf(simVal)), beauty = free ? beautyOf(tree).score : 0;
     // 整盆（盆+架+树）拍成一张透明图；外发光预先烘一张，播放时只贴图，不逐帧模糊
     const b = tree.box, x0 = Math.max(0, Math.min(U2X(b.x0), ROOT_X - 0.7 * S) - 24), x1 = Math.min(W, Math.max(U2X(b.x1), ROOT_X + 0.7 * S) + 24), y0 = Math.max(0, U2Y(b.y0) - 24), y1 = Math.min(H, TABLE_Y + 6);
     const bw = x1 - x0, bh = y1 - y0, pad = 40, img = document.createElement('canvas'); img.width = (bw + pad * 2) * DPR; img.height = (bh + pad * 2) * DPR;
@@ -1152,7 +1153,7 @@ function startWin(perfect = true) {
     gg.shadowColor = 'rgba(255,208,120,1)'; gg.shadowBlur = 14 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     const seal = sealSpot(z, free ? ['自', '在'] : ['圆', '满']);
-    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free,
+    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free, beauty,
         starAt: 0.6, sealAt: free ? 0.7 : 0.6 + 2 * 0.17 + 0.18, tapAt: free ? 0.7 + 0.75 : perfect ? 0.6 + 2 * 0.17 + 0.18 + 0.75 : 0.6 + 2 * 0.17 + 0.45, sparks: [] };   // 星星哒哒哒连着出，最后一颗刚落定印章就落下
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
@@ -1230,6 +1231,7 @@ function drawWin(dt) {
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(`${f.name} · ${sp.name}`, W / 2, Math.max(64, top - 50));
         if (!win.free) drawStars(g, t, Math.max(100, top - 14), fade);
+        else { const q = clamp((t - 0.5) / 0.6, 0, 1), v = Math.round(win.beauty * (1 - (1 - q) ** 3)); g.fillStyle = `rgba(255,214,120,${ta})`; g.font = '900 20px "Songti SC", "STKaiti", serif'; g.fillText(`美观 ${v} · ${beautyWord(v)}`, W / 2, Math.max(100, top - 14)); }
         if (win.fly < 0 && t > win.tapAt) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - win.tapAt) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
     }
     // 印章跟着放大后的树
@@ -1267,20 +1269,57 @@ function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = win.free ? commitFree() : commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
     const gb = $('gardenBtn'); gb.classList.remove('got'); void gb.offsetWidth; gb.classList.add('got');
     sfx.coin(); if (navigator.vibrate) navigator.vibrate(20); renderHud();
-    popText(W / 2, H * 0.32, `+💰${reward} · 摆进园子了`, 'big');
+    popText(W / 2, H * 0.32, win.free ? `摆进园子了 · 可卖 💰${priceOf(G.garden[0])}` : `+💰${reward} · 摆进园子了`, 'big');
     if (firstForm && nextF) setTimeout(() => popText(W / 2, H * 0.4, `解锁新造型：${nextF.name}`, 'big'), 350);
     setTimeout(() => {
-        clearCele(); $('ref').classList.add('hidden'); phase = 'done'; pickF = null; setupCard();
+        const wasFree = win.free; clearCele(); $('ref').classList.add('hidden'); phase = 'done'; pickF = null;
+        if (wasFree) { gardenCard(0); return; }   // 自由创作：直接打开园子，看到刚摆进去的作品
+        setupCard();
         const el = $('card').querySelector(`[data-f="${fid}"]`); if (el) { el.classList.add('fresh'); el.scrollIntoView({ block: 'nearest' }); }
     }, 950);
 }
 const starsOf = v => v >= 0.995 ? 3 : v >= 0.75 ? 2 : v >= 0.55 ? 1 : 0;   // 三星只给修满 100%（圆满）；差一点也只有两星
 
-// 自由创作的作品：直接摆进园子，给一点金币
+// 美观度（自由创作）：把叶子铺到格子上看树冠的"形"——
+//  轮廓干净（周长/面积接近圆团）、分层（3~7 团叶层最好）、重心稳、没有光秃秃的乱枝、修剪得当（留 35%~75% 的叶量）
+function beautyOf(t) {
+    analyze(t);
+    const N = t.nodes, cs = S * 0.055, r = t.spec.len * S * 0.75, L = N.filter(n => n.alive && n.leaf);
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const n of L) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
+    if (!L.length) return { A: 0, score: 10 };
+    x0 -= r; y0 -= r; x1 += r; y1 += r;
+    const gw = Math.ceil((x1 - x0) / cs) + 1, gh = Math.ceil((y1 - y0) / cs) + 1, grid = new Uint8Array(gw * gh), rc = Math.ceil(r / cs);
+    for (const n of L) { const cx = Math.floor((n.x - x0) / cs), cy = Math.floor((n.y - y0) / cs); for (let j = -rc; j <= rc; j++) for (let i = -rc; i <= rc; i++) if (i * i + j * j <= rc * rc) { const X = cx + i, Y = cy + j; if (X >= 0 && Y >= 0 && X < gw && Y < gh) grid[Y * gw + X] = 1; } }
+    // 连通的叶团：面积、周长、重心
+    const seen = new Int32Array(gw * gh).fill(-1), clusters = []; let A = 0, mx = 0;
+    for (let k = 0; k < grid.length; k++) {
+        if (!grid[k] || seen[k] >= 0) continue;
+        const st = [k], c = { a: 0, p: 0 }; seen[k] = clusters.length;
+        while (st.length) { const q = st.pop(), qx = q % gw, qy = (q / gw) | 0; c.a++; mx += qx;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = qx + dx, Y = qy + dy, nk = Y * gw + X; if (X < 0 || Y < 0 || X >= gw || Y >= gh || !grid[nk]) { c.p++; continue; } if (seen[nk] < 0) { seen[nk] = clusters.length; st.push(nk); } } }
+        clusters.push(c); A += c.a;
+    }
+    const big = clusters.filter(c => c.a >= 6);
+    const rough = big.reduce((s2, c) => s2 + c.a * (c.p / (2 * Math.sqrt(Math.PI * c.a))), 0) / Math.max(1, big.reduce((s2, c) => s2 + c.a, 0));
+    const edge = clamp((2.4 - rough) / 1.1, 0, 1);
+    const nC = big.length, layer = nC <= 0 ? 0 : nC === 1 ? 0.55 : nC === 2 ? 0.75 : nC <= 7 ? 1 : Math.max(0.3, 1 - (nC - 7) * 0.12);
+    const comX = x0 + (mx / Math.max(1, A) + 0.5) * cs, off = Math.abs(comX - ROOT_X) / Math.max(S * 0.4, (x1 - x0) / 2), bal = t.form.stand ? 0.9 : 1 - clamp(off - 0.3, 0, 0.7) * 0.8;
+    // 光秃秃的枝：没有叶子的非主干小枝
+    const has = new Uint8Array(N.length); for (let i = N.length - 1; i >= 0; i--) { const n = N[i]; if (!n.alive) continue; if (n.leaf) has[i] = 1; if (has[i] && n.p >= 0) has[n.p] = 1; }
+    let bare = 0, tot = 0; for (const n of N) if (n.alive && !n.trunk && !n.cut) { tot++; if (!has[n.i]) bare++; }
+    const bareS = 1 - clamp(bare / Math.max(1, tot) * 4, 0, 0.7);
+    const f = t.fullA ? A / t.fullA : 1, full = f < 0.12 ? f / 0.12 * 0.3 : f < 0.45 ? 0.3 + (f - 0.12) / 0.33 * 0.7 : f <= 0.75 ? 1 : f <= 0.92 ? 1 - (f - 0.75) / 0.17 * 0.75 : 0.1;   // 几乎没修 → 很低
+    const score = Math.round(clamp(100 * (0.25 * edge + 0.15 * layer + 0.12 * bal + 0.13 * bareS + 0.35 * full), 10, 100));
+    return { A, score, parts: { edge, layer, bal, bareS, full, nC, f } };
+}
+const beautyWord = v => v >= 85 ? '上品' : v >= 70 ? '佳作' : v >= 50 ? '小成' : '习作';
+// 卖价：看美观度，再按树种稀有、开花结果加一点
+const priceOf = w => Math.round((5 + 160 * ((w.beauty ?? 50) / 100) ** 3) *   // 越美越值钱，增长很陡（不修直接卖只值十来块）
+     (1 + ((SPEC[w.species] || {}).rar - 1 || 0) * 0.4) * (w.bloom ? 1.2 : 1));
+// 自由创作的作品：摆进园子（不直接给钱，想换钱就去园子里卖掉）
 function commitFree() {
-    const reward = 15; G.coins += reward;
-    G.garden.unshift({ img: snapshot(), form: 'free', species: tree.spec.id, stars: 0, bloom: tree.bloom || tree.fruit }); if (G.garden.length > 30) G.garden.pop();
-    save(); return { reward };
+    G.garden.unshift({ img: snapshot(330, 390), form: 'free', trunk: tree.form.trunk, species: tree.spec.id, stars: 0, beauty: win.beauty, bloom: !!(tree.bloom || tree.fruit), date: Date.now() }); if (G.garden.length > 30) G.garden.pop();
+    save(); return { reward: 0 };
 }
 // 记账：星级、金币、图鉴最佳作品、园子
 function commitWork(st) {
@@ -1392,10 +1431,26 @@ function bookCard() {
     $('cClose').onclick = hideCard;
     $('card').querySelectorAll('[data-v]').forEach(el => el.onclick = () => { if (G.best && G.best[el.dataset.v]) viewWork(el.dataset.v, bookCard); });
 }
-function gardenCard() {
+function gardenCard(fresh = -1) {
     showCard(`<div class="ctop"><button class="btn" id="cClose">关闭</button></div><h2>我的盆景园</h2>
-        ${G.garden.length ? `<div class="garden">${G.garden.map(w => `<div><img src="${w.img}">${FORM[w.form].name}<br><span style="color:#f0a020">${'★'.repeat(w.stars)}</span> ${SPEC[w.species].name}${w.bloom ? ' 🌸' : ''}</div>`).join('')}</div>` : '<div class="sub">还没有作品，修好第一盆就会摆在这里</div>'}`);
-    $('cClose').onclick = hideCard;
+        ${G.garden.length ? `<div class="sub" style="font-size:12px;margin-top:-2px">点作品可以细看；自由创作的作品可以卖掉换金币</div><div class="garden">${G.garden.map((w, i) => `<div data-w="${i}" class="${i === fresh ? 'fresh' : ''}" style="cursor:pointer"><img src="${w.img}">${FORM[w.form].name}<br>${w.form === 'free' ? `<span style="color:#b8862a">美观 ${w.beauty ?? 50}</span>` : `<span style="color:#f0a020">${'★'.repeat(w.stars)}</span>`} ${SPEC[w.species].name}${w.bloom ? ' 🌸' : ''}</div>`).join('')}</div>` : '<div class="sub">还没有作品，修好第一盆就会摆在这里</div>'}`);
+    $('cClose').onclick = () => { if (phase === 'done') setupCard(); else hideCard(); };   // 刚收完作品：关掉园子就去选下一盆
+    $('card').querySelectorAll('[data-w]').forEach(el => el.onclick = () => { audio(); workCard(+el.dataset.w); });
+}
+// 细看一件作品；自由创作的可以卖（点两下确认，防手滑）
+function workCard(i) {
+    const w = G.garden[i]; if (!w) return gardenCard();
+    const free = w.form === 'free', price = priceOf(w), T0 = free && TRUNK[w.trunk];
+    showCard(`<div class="ctop"><button class="btn ghost" id="wBack">返回</button>${free ? `<button class="btn" id="wSell">卖出 💰${price}</button>` : ''}</div>
+        <h2>${FORM[w.form].name}${T0 ? ' · ' + T0.name : ''}</h2>
+        <img src="${w.img}" style="width:100%;max-width:300px;display:block;margin:6px auto;border-radius:16px;box-shadow:0 6px 18px rgba(60,40,20,.18)">
+        <div class="sub">${SPEC[w.species].name}${w.bloom ? ' · 开花了 🌸' : ''} · ${free ? `美观 <b>${w.beauty ?? 50}</b> 分（${beautyWord(w.beauty ?? 50)}）` : '★'.repeat(w.stars) + '☆'.repeat(3 - w.stars)}
+        ${free ? '<br><span style="font-size:12px;opacity:.7">卖价看美观度：轮廓干净、分层清楚、重心稳、没有光秃乱枝、修得不多不少，就越值钱</span>' : ''}</div>`);
+    $('wBack').onclick = () => gardenCard();
+    if (free) { let armed = false; $('wSell').onclick = () => {
+        if (!armed) { armed = true; $('wSell').textContent = `确定卖出？💰${price}`; return; }
+        G.garden.splice(i, 1); G.coins += price; save(); renderHud(); sfx.coin(); popText(W / 2, H * 0.3, `卖出 +💰${price}`, 'big'); gardenCard();
+    }; }
 }
 $('bookBtn').onclick = () => { audio(); bookCard(); };
 $('gardenBtn').onclick = () => { audio(); gardenCard(); };
