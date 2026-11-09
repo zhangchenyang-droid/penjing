@@ -1036,6 +1036,40 @@ function drawCeleFront(dt) {
 }
 // ---------- 修成后：整盆变成奖励品——背景压暗、外发光、放大、光芒转动；点任意位置飞进「园子」→ 打开选盆 ----------
 let win = null;
+// 「圆满」印：白文长方印，朱砂印泥的质感（边缘毛糙、印泥深浅不匀、有飞白），每次盖都略有不同
+function makeSeal(w, h) {
+    const k = 4, mk = () => { const c = document.createElement('canvas'); c.width = w * k; c.height = h * k; const g = c.getContext('2d'); g.scale(k, k); return [c, g]; };
+    // 印面：四边带细小起伏
+    const P = new Path2D(), J = () => rand(-0.45, 0.45);
+    for (let i = 0; i <= 10; i++) P.lineTo(i / 10 * w + J(), J());
+    for (let i = 0; i <= 18; i++) P.lineTo(w + J(), i / 18 * h + J());
+    for (let i = 10; i >= 0; i--) P.lineTo(i / 10 * w + J(), h + J());
+    for (let i = 18; i >= 0; i--) P.lineTo(J(), i / 18 * h + J());
+    P.closePath();
+    // 朱砂层：印泥深浅不匀 → 刻掉白文 → 飞白
+    const [ink, g] = mk();
+    g.fillStyle = '#c4332a'; g.fill(P);
+    g.globalCompositeOperation = 'source-atop';
+    for (let i = 0; i < 9; i++) { const x = rand(0, w), y = rand(0, h), r = rand(4, 11), dark = Math.random() < 0.45, gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, dark ? 'rgba(140,20,16,0.3)' : 'rgba(232,90,66,0.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+    g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000'; g.strokeStyle = '#000'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `900 ${w * 0.8}px "STKaiti", "Kaiti SC", "KaiTi", "Songti SC", serif`;
+    g.fillText('圆', w / 2, h * 0.28); g.fillText('满', w / 2, h * 0.72);
+    g.lineWidth = 0.7; g.strokeRect(1.8, 1.8, w - 3.6, h - 3.6);
+    for (let i = 0; i < 260; i++) { const x = rand(0, w), y = rand(0, h), edge = Math.min(x, y, w - x, h - y) < 2.5; if (!edge && Math.random() < 0.55) continue; g.globalAlpha = rand(0.25, 0.9); g.beginPath(); g.arc(x, y, rand(0.15, edge ? 0.7 : 0.45), 0, TAU); g.fill(); }
+    for (let i = 0; i < 6; i++) { const x = rand(0, w), y = rand(0, h); g.globalAlpha = rand(0.15, 0.35); g.lineWidth = rand(0.3, 0.8); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-5, 5), y + rand(2, 6)); g.stroke(); }
+    // 底下垫一层宣纸色：白文和飞白处露出纸色，字在暗背景上也清楚
+    const [c, g2] = mk(); g2.fillStyle = '#f3e9d4'; g2.fill(P); g2.setTransform(1, 0, 0, 1, 0, 0); g2.drawImage(ink, 0, 0);
+    return c;
+}
+// 印章位置：盆的左下或右下，哪边空就盖哪边（悬崖式枝叶垂在右边就盖左边）；不歪，规规矩矩
+function sealSpot(z) {
+    const w = 22 / z * 1.2, h = w * 2.1, standH = tree.form.stand ? 0.62 * S : 0, ph = TABLE_Y - ROOT_Y - standH, cy = ROOT_Y + ph * 0.62;
+    const spot = side => ({ x: ROOT_X + side * (0.6 * S + w * 0.5 + 8), y: cy });
+    const busy = side => { const q = spot(side); let n = 0; for (const nd of tree.nodes) if (nd.alive && Math.abs(nd.x - q.x) < w * 0.5 + 24 && Math.abs(nd.y - q.y) < h * 0.5 + 24) n++; return n; };
+    const side = busy(1) <= busy(-1) ? 1 : -1, q = spot(side);
+    return { x: q.x, y: q.y, w, h, img: makeSeal(w, h) };
+}
 const winCv = $('winCv'), winG = winCv.getContext('2d');
 const easeOutBack = x => 1 + 2.2 * (x - 1) ** 3 + 1.2 * (x - 1) ** 2, easeInOut = x => x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
 function startWin() {
@@ -1051,7 +1085,8 @@ function startWin() {
     const gg = glow.getContext('2d'), off = glow.width * 2;
     gg.shadowColor = 'rgba(255,247,226,1)'; gg.shadowBlur = 12 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
-    win = { t: 0, img, glow, pad, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st };
+    const seal = sealSpot(z);
+    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st };
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
 }
@@ -1059,7 +1094,6 @@ function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); wi
 winCv.addEventListener('pointerdown', () => {
     if (!win || win.fly >= 0 || win.t < 1.25) return;   // 等印章盖完
     audio(); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
-    const seal = $('seal'); if (seal) seal.animate([{ opacity: 0.93 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
     noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
 });
 function drawWin(dt) {
@@ -1069,7 +1103,7 @@ function drawWin(dt) {
     g.setTransform(DPR, 0, 0, DPR, 0, 0); g.clearRect(0, 0, W, H);
     // 进场：0.6 秒放大到画面中央（带一点回弹）
     const k = easeOutBack(clamp(t / 0.6, 0, 1)), kv = clamp(t / 0.45, 0, 1);
-    let sc = 1 + (win.z - 1) * k, x = win.cx + (win.tx - win.cx) * k, y = win.cy + (win.ty - win.cy) * k + Math.sin(t * 1.6) * 3 * kv, veil = 0.7 * kv, rot = 0;
+    let sc = 1 + (win.z - 1) * k, x = win.cx + (win.tx - win.cx) * k, y = win.cy + (win.ty - win.cy) * k + Math.sin(t * 1.6) * 3 * kv, veil = 0.86 * kv, rot = 0;
     if (win.fly >= 0) {
         // 飞向「园子」：沿弧线缩小飞过去，背景亮回来
         const q = easeInOut(clamp(win.fly / FLY, 0, 1)), ex = win.fx, ey = win.fy, mx = (x + ex) / 2 - 40, my = Math.min(y, ey) - 60;
@@ -1078,16 +1112,17 @@ function drawWin(dt) {
         if (win.fly >= FLY && !win.arrived) arrive();
         if (win.arrived) { const q2 = clamp((win.fly - FLY) / 0.12, 0, 1); sc *= 1 - q2; if (q2 >= 1) return; }   // 园子按钮一弹，小盆栽就被"吸"进去，不在按钮上停留
     }
-    g.fillStyle = `rgba(18,14,10,${veil})`; g.fillRect(0, 0, W, H);
+    g.fillStyle = `rgba(14,12,12,${veil})`; g.fillRect(0, 0, W, H);
     const fade = win.fly >= 0 ? 1 - clamp(win.fly / 0.35, 0, 1) : 1;
     // 背后一轮"圆窗"：淡淡的月白圆光 + 一圈细金线（替代转动的光芒，更素雅）
     if (fade > 0) {
         const R = Math.min(W * 0.44, Math.max(win.bw, win.bh) * sc * 0.42), a = kv * fade, cy = y - win.bh * sc * 0.1;
-        const rg = g.createRadialGradient(x, cy, R * 0.2, x, cy, R * 1.25);
-        rg.addColorStop(0, `rgba(255,244,214,${0.2 * a})`); rg.addColorStop(0.75, `rgba(255,236,196,${0.13 * a})`); rg.addColorStop(0.8, `rgba(255,232,186,${0.05 * a})`); rg.addColorStop(1, 'rgba(255,232,186,0)');
-        g.fillStyle = rg; g.beginPath(); g.arc(x, cy, R * 1.25, 0, TAU); g.fill();
-        g.strokeStyle = `rgba(232,200,130,${0.45 * a})`; g.lineWidth = 1.2; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke();
-        g.strokeStyle = `rgba(232,200,130,${0.18 * a})`; g.lineWidth = 1; g.beginPath(); g.arc(x, cy, R + 6, 0, TAU); g.stroke();
+        // 大范围、慢慢衰减的柔光（不聚成一团），颜色接近中性的暖白，叠在暗底上不发灰发黄
+        const RR = Math.max(W, H) * 0.75, rg = g.createRadialGradient(x, cy, 0, x, cy, RR);
+        rg.addColorStop(0, `rgba(255,247,232,${0.24 * a})`); rg.addColorStop(0.25, `rgba(255,247,232,${0.14 * a})`); rg.addColorStop(0.5, `rgba(255,247,232,${0.045 * a})`); rg.addColorStop(0.8, `rgba(255,247,232,${0.01 * a})`); rg.addColorStop(1, 'rgba(255,247,232,0)');
+        g.fillStyle = rg; g.fillRect(0, 0, W, H);
+        g.strokeStyle = `rgba(236,210,150,${0.38 * a})`; g.lineWidth = 1; g.beginPath(); g.arc(x, cy, R, 0, TAU); g.stroke();
+        g.strokeStyle = `rgba(236,210,150,${0.15 * a})`; g.lineWidth = 1; g.beginPath(); g.arc(x, cy, R + 6, 0, TAU); g.stroke();
     }
     // 外发光 + 整盆
     const jolt = win.hit ? Math.exp(-(t - win.hit) * 14) * Math.sin((t - win.hit) * 60) * 2.5 : 0;   // 印章落下时整盆轻轻一震
@@ -1095,6 +1130,21 @@ function drawWin(dt) {
     const iw = win.img.width / DPR, ih = win.img.height / DPR;
     g.globalAlpha = 0.5 * kv; g.drawImage(win.glow, 0, 0, iw, ih);   // 干净的月白描边光，不用 lighter 叠加（叠在暗底上发脏）
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.drawImage(win.img, 0, 0, iw, ih);
+    if (win.sealed) {
+        const S2 = win.seal, lx = (clamp(x + (S2.x - win.cx) * sc, S2.w * sc / 2 + 14, W - S2.w * sc / 2 - 14) - x) / sc + win.bw / 2 + win.pad, ly = S2.y - win.cy + win.bh / 2 + win.pad, dt2 = t - win.sealed;
+        if (!win.hit) {
+            // 落下中：印章悬空（大一点、带影子），越落越近
+            const q = clamp(dt2 / 0.3, 0, 1), e = q * q, s3 = 1.5 - 0.5 * e;
+            g.save(); g.translate(lx, ly); g.globalAlpha = 0.25 * e; g.fillStyle = '#000'; g.fillRect(-S2.w / 2 + 3 * (1 - e), -S2.h / 2 + 8 * (1 - e), S2.w, S2.h);
+            g.scale(s3, s3); g.globalAlpha = 0.35 + 0.6 * e; g.drawImage(S2.img, -S2.w / 2, -S2.h / 2, S2.w, S2.h); g.restore();
+        } else {
+            // 压实后：印泥留在画上；抬起的印章淡淡离开
+            const h2 = t - win.hit, ink = Math.min(1, 0.75 + h2 * 1.5);
+            g.globalAlpha = 0.92 * ink; g.drawImage(S2.img, lx - S2.w / 2, ly - S2.h / 2, S2.w, S2.h);
+            const u = clamp(h2 / 0.35, 0, 1); if (u < 1) { const s3 = 1 + 0.18 * u; g.globalAlpha = 0.3 * (1 - u); g.drawImage(S2.img, lx - S2.w * s3 / 2, ly - S2.h * s3 / 2, S2.w * s3, S2.h * s3); }
+            g.globalAlpha = 1;
+        }
+    }
     g.restore();
     // 几点慢慢上浮的微光
     if (fade > 0) for (let i = 0; i < 7; i++) {
@@ -1113,15 +1163,9 @@ function drawWin(dt) {
         if (win.fly < 0 && t > 1) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - 1) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
     }
     // 印章跟着放大后的树
-    // 放大落定后盖「圆满」印：举起 → 压下 → 咚一声，整盆一震，印泥晕开一圈
-    const sx = clamp(x + win.bw * sc * 0.36, 50, W - 50), sy = clamp(y - win.bh * sc * 0.1, 80, H - 80);
-    if (!win.sealed && t >= 0.8 && win.fly < 0) {
-        win.sealed = t; const el = document.createElement('div'); el.className = 'seal up'; el.id = 'seal'; el.innerHTML = '圆<br>满'; document.body.appendChild(el);
-        tone(1200, 0.12, 0.012, 'sine', 0, 900);   // 举起时一点轻响
-    }
-    if (win.sealed && !win.hit && t >= win.sealed + 0.37) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
-    const seal = $('seal'); if (seal && win.fly < 0) { seal.style.left = sx + 'px'; seal.style.top = (sy + jolt) + 'px'; }
-    if (win.hit && win.fly < 0) { const q = (t - win.hit) / 0.5; if (q < 1) { g.strokeStyle = `rgba(200,60,45,${0.35 * (1 - q)})`; g.lineWidth = 2 * (1 - q) + 0.5; g.beginPath(); g.arc(sx, sy, 34 + q * 30, 0, TAU); g.stroke(); } }
+    // 放大落定后盖「圆满」印：印章悬着落下 → 压实（咚、整盆一震）→ 抬起，留下印泥
+    if (!win.sealed && t >= 0.8 && win.fly < 0) { win.sealed = t; tone(1200, 0.12, 0.012, 'sine', 0, 900); }
+    if (win.sealed && !win.hit && t >= win.sealed + 0.3) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
 }
 function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
