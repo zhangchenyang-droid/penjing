@@ -19,6 +19,9 @@
     .hud > * { pointer-events: auto; }
     .pill { background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800; box-shadow: 0 2px 0 rgba(90, 70, 40, .15); white-space: nowrap; }
     .pill b { color: #b8862a; }
+    #formPill { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+    .hud .btn { padding: 8px 12px; }
+    .tchip { position: relative; } .tchip .own { position: absolute; top: 4px; right: 4px; background: #5aa83e; color: #fff; border-radius: 6px; font-size: 10px; padding: 1px 4px; }
     .sp { flex: 1; }
     .btn { background: linear-gradient(#ffcf5a, #f0a020); color: #4a2a00; border: none; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 800;
         font-family: inherit; cursor: pointer; white-space: nowrap; box-shadow: 0 3px 0 #b8700a, 0 5px 10px rgba(0, 0, 0, .12); }
@@ -104,6 +107,7 @@
     <div class="sp"></div>
     <button class="btn ghost" id="bookBtn">图鉴</button>
     <button class="btn ghost" id="gardenBtn">园子</button>
+    <button class="btn" id="shopBtn">商店</button>
 </div>
 <div class="ref hidden" id="ref"><canvas id="refCv" width="188" height="200"></canvas><div id="refName">目标</div></div>
 <div class="bottom">
@@ -197,14 +201,48 @@ const FORMS = [
 const FORM = Object.fromEntries(FORMS.map(f => [f.id, f]));
 // 自由创作：没有目标剪影。主干随机微弯，树冠是一大团蓬松的叶冠（几团厚椭圆叠成穹顶），随你剪成什么样
 FORM.free = { id: 'free', name: '自由创作', origin: '', d: '' };
-function freeForm() {
-    const j = () => rand(-0.14, 0.14), lean = rand(-0.12, 0.12);
-    const trunks = [[[0, 1], [j() + lean * 0.5, 0.5], [j() + lean, 0.02], [j() * 0.6 + lean * 1.3, -0.55]]];
+// 树坯（自由创作用）：商店里买，买下永久拥有。只定主干走向，树冠按主干自动长一大团蓬松的叶冠
+const TRUNKS = [
+    { id: 'zhi', name: '直干坯', price: 0, d: '笔直挺拔，最好上手', lines: [[[0, 1], [0.02, 0.3], [0, -0.6]]] },
+    { id: 'xie', name: '斜干坯', price: 40, d: '整棵往一侧斜出去，有动势', lines: [[[0, 1], [0.25, 0.45], [0.5, -0.35]]] },
+    { id: 'qu', name: '曲干坯', price: 60, d: '主干 S 形扭转，最有味道', lines: [[[0, 1], [0.22, 0.62], [-0.12, 0.22], [0.14, -0.2], [0, -0.6]]] },
+    { id: 'shuang', name: '双干坯', price: 80, d: '一根两干，一高一矮', lines: [[[0, 1], [-0.12, 0.4], [-0.15, -0.55]], [[0, 1], [0.14, 0.6], [0.34, 0.05]]] },
+    { id: 'wen', name: '文人坯', price: 100, d: '瘦高曲折，枝叶只在顶上', lines: [[[0, 1], [0.15, 0.4], [-0.12, -0.15], [0.15, -0.75]]], from: 0.72 },
+    { id: 'ban', name: '半悬崖坯', price: 120, d: '主干横着探出盆外', stand: true, lines: [[[0, 1], [0.15, 0.75], [0.62, 0.8], [0.95, 0.95]]], from: 0.2 },
+    { id: 'xuan', name: '悬崖坯', price: 150, d: '翻出盆沿一路垂下去', stand: true, lines: [[[0, 1], [0.1, 0.76], [0.45, 0.82], [0.7, 1.2], [0.82, 1.55]]], from: 0.2 },
+    { id: 'cong', name: '丛干坯', price: 200, d: '一个根上分出五干，高低错落像一小片树林', lines: [[[0, 1], [0, 0.5], [0, -0.55]], [[0, 1], [-0.18, 0.85], [-0.32, 0.4], [-0.36, -0.12]], [[0, 1], [0.16, 0.85], [0.3, 0.45], [0.34, 0.02]], [[0, 1], [-0.25, 0.92], [-0.5, 0.7], [-0.58, 0.35]], [[0, 1], [0.25, 0.92], [0.5, 0.72], [0.56, 0.45]]], from: 0.5, k: 0.7 },
+];
+const TRUNK = Object.fromEntries(TRUNKS.map(t => [t.id, t]));
+// 沿主干上段撒一串厚叶团，左右交错叠成一大团树冠
+function crownFor(lines, from = 0.38, k = 1) {
     const blobs = [];
-    for (const [v, half, n] of [[0.32, 0.62, 3], [-0.02, 0.58, 3], [-0.36, 0.46, 2], [-0.66, 0.3, 2]])
-        for (let i = 0; i < n; i++) blobs.push([lean * (1 - v) * 0.8 + (n === 1 ? 0 : -half + (2 * half) * i / (n - 1)) * 0.75 + rand(-0.05, 0.05), v + rand(-0.04, 0.04), half / n * 1.25 + 0.08, rand(0.15, 0.19)]);
-    return { id: 'free', name: '自由创作', origin: '', d: '', trunks, blobs };
+    for (const l of lines) {
+        const seg = []; let L = 0; for (let i = 1; i < l.length; i++) { const d = Math.hypot(l[i][0] - l[i - 1][0], l[i][1] - l[i - 1][1]); seg.push(d); L += d; }
+        const at = q => { let r = q * L; for (let i = 0; i < seg.length; i++) { if (r <= seg[i] || i === seg.length - 1) { const f = Math.min(1, r / seg[i]); return [l[i][0] + (l[i + 1][0] - l[i][0]) * f, l[i][1] + (l[i + 1][1] - l[i][1]) * f]; } r -= seg[i]; } };
+        let side = Math.random() < 0.5 ? 1 : -1;
+        for (let q = from; q <= 1.001; q += 0.16) { const [u, v] = at(Math.min(q, 1)), w = (0.2 + 0.14 * (1 - q)) * k; blobs.push([u + side * w * 0.75, v, w + 0.06, 0.15 * Math.max(0.75, k)]); side = -side; }
+        const [u, v] = at(1); blobs.push([u, v - 0.08 * k, 0.24 * k, 0.16 * Math.max(0.75, k)]);
+    }
+    return blobs;
 }
+function freeForm(tid = 'zhi') {
+    const T0 = TRUNK[tid] || TRUNKS[0], J = () => rand(-0.035, 0.035);
+    const trunks = T0.lines.map(l => l.map(([u, v], i) => i ? [u + J(), v + J()] : [u, v]));   // 每次种都略有不同
+    return { id: 'free', name: '自由创作', origin: '', d: '', trunk: T0.id, stand: !!T0.stand, trunks, blobs: crownFor(trunks, T0.from, T0.k) };
+}
+// 树坯预览图：淡淡的树冠 + 清楚的主干 + 盆（+ 花架）
+function trunkPreview(t0, size) {
+    const f = freePreviewForm(t0), c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'), fit = formFit(f, size, size), s2 = fit.s, ox = fit.ox, oy = fit.oy;
+    const P = (u, v) => [ox + u * s2, oy + (v - 1) * s2];
+    for (const [cx, cy, rx, ry] of f.blobs) { const [x, y] = P(cx, cy); g.fillStyle = 'rgba(122,172,92,0.32)'; g.beginPath(); g.ellipse(x, y, rx * s2, ry * s2 * 1.1, 0, 0, TAU); g.fill(); }
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const l of f.trunks) { const n = l.length; for (let k = 1; k < n; k++) { const a = P(...l[k - 1]), b = P(...l[k]); g.strokeStyle = '#6b4a32'; g.lineWidth = s2 * (0.11 - 0.07 * (k - 1) / Math.max(1, n - 1)) * (f.trunks.length > 2 ? 0.7 : 1); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); } }
+    g.fillStyle = '#4a6a82'; g.beginPath(); g.moveTo(ox - s2 * 0.62, oy); g.lineTo(ox + s2 * 0.62, oy); g.lineTo(ox + s2 * 0.52, oy + s2 * 0.3); g.lineTo(ox - s2 * 0.52, oy + s2 * 0.3); g.fill();
+    if (f.stand) { g.fillStyle = '#5a3424'; g.fillRect(ox - s2 * 0.5, oy + s2 * 0.3, s2, s2 * 0.08); g.fillRect(ox - s2 * 0.42, oy + s2 * 0.3, s2 * 0.08, s2 * 0.6); g.fillRect(ox + s2 * 0.34, oy + s2 * 0.3, s2 * 0.08, s2 * 0.6); }
+    return c.toDataURL();
+}
+const _prev = {};
+function freePreviewForm(t0) { return _prev[t0.id] || (_prev[t0.id] = { trunks: t0.lines, stand: !!t0.stand, blobs: crownFor(t0.lines, t0.from, t0.k) }); }
 const inBlobs = (f, u, v, k = 1, ky = k) => f.blobs.some(([cx, cy, rx, ry]) => ((u - cx) / (rx * k)) ** 2 + ((v - cy) / (ry * ky)) ** 2 <= 1);
 
 // ============================================================
@@ -227,6 +265,7 @@ const SPEC = Object.fromEntries(SPECIES.map(s => [s.id, s]));
 const SAVE_KEY = 'bonsai_v2';
 let G = (() => { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.forms ? s : null; } catch (e) { return null; } })()
     || { coins: 30, forms: {}, species: { ficus: 1, pine: 1 }, garden: [], seen: false, cur: { form: 'chokkan', species: 'ficus' } };
+G.trunks = G.trunks || { zhi: 1 };   // 拥有的树坯
 const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) { } };
 const unlocked = f => { const i = FORMS.indexOf(f); return i === 0 || !!G.forms[FORMS[i - 1].id]; };
 
@@ -912,8 +951,8 @@ function drawPot() {
 // 一局：选造型 + 树种 → 树长出来 → 修剪 → 完成
 // ============================================================
 let phase = 'setup';   // setup | live | done
-function startRound(formId, specId) {
-    const free = formId === 'free', f = free ? freeForm() : FORM[formId], sp = SPEC[specId];
+function startRound(formId, specId, trunkId) {
+    const free = formId === 'free', f = free ? freeForm(trunkId) : FORM[formId], sp = SPEC[specId];
     G.cur = { form: formId, species: specId }; save();
     ROOT_Y = TABLE_Y - 0.36 * S - (f.stand ? 0.62 * S : 0); { let lo = 9, hi = -9; for (const [cx, , rx] of f.blobs) { lo = Math.min(lo, cx - rx); hi = Math.max(hi, cx + rx); } ROOT_X = W / 2 - clamp((lo + hi) / 2, -0.5, 0.5) * S; }
     tree = newTree(f, sp); tree.free = free; buildMask(tree); if (free) $('ref').classList.add('hidden'); else renderRef(f);
@@ -1320,7 +1359,7 @@ function setupCard() {
         });
         $('card').querySelectorAll('[data-s]').forEach(el => el.onclick = () => { pickS = el.dataset.s; render(); bind(); });
         $('cPlant').onclick = () => { audio(); hideCard(); startRound(pickF, pickS); };
-        $('cFree').onclick = () => { audio(); hideCard(); startRound('free', pickS); popText(W / 2, H * 0.3, '没有剪影，想剪成什么样都行', 'big'); };
+        $('cFree').onclick = () => { audio(); shopCard(() => setupCard()); };
         $('cSeed').onclick = () => { if (G.coins < 60) return; G.coins -= 60; const s = rollSeed(); const isNew = !G.species[s.id]; G.species[s.id] = 1; pickS = s.id; save(); renderHud(); sfx.coin(); render(); bind(); popText(W / 2, H * 0.3, `开出了 ${s.name}${isNew ? '（新树种！）' : ''}`, 'big'); };
     };
     bind();
@@ -1360,6 +1399,39 @@ function gardenCard() {
 }
 $('bookBtn').onclick = () => { audio(); bookCard(); };
 $('gardenBtn').onclick = () => { audio(); gardenCard(); };
+$('shopBtn').onclick = () => { if (phase === 'win') return; audio(); shopCard(); };
+// 商店：树坯（自由创作用）+ 神秘种子。点一个树坯展开看大图，喜欢就买；买过的直接拿来创作
+function shopCard(back) {
+    const sp = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
+    showCard(`<div class="ctop">${back ? '<button class="btn ghost" id="sBack">返回</button>' : ''}<button class="btn" id="cClose">关闭</button></div><h2>商店</h2>
+        <h3>树坯 · 自由创作</h3><div class="sub" style="font-size:12px;text-align:left;margin:-4px 0 6px">买下的树坯可以一直用：没有剪影，想剪成什么样都行</div>
+        <div class="chips">${TRUNKS.map(t0 => `<div class="chip tchip" data-t="${t0.id}"><img src="${trunkPreview(t0, 120)}" style="width:100%">${t0.name}<small>${G.trunks[t0.id] ? '已拥有' : t0.price ? '💰' + t0.price : '免费'}</small>${G.trunks[t0.id] ? '<span class="own">✓</span>' : ''}</div>`).join('')}</div>
+        <h3>种子</h3>
+        <div style="display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px;text-align:left">
+            <div style="font-size:28px">🎁</div><div style="flex:1;font-size:13px;font-weight:800">神秘种子<br><span style="font-weight:600;opacity:.65;font-size:12px">随机一种树，可能开出樱花、紫藤</span></div>
+            <button class="btn" id="sSeed" ${G.coins < 60 ? 'disabled' : ''}>💰60</button></div>`);
+    $('cClose').onclick = hideCard; if (back) $('sBack').onclick = back;
+    $('card').querySelectorAll('[data-t]').forEach(el => el.onclick = () => { audio(); trunkCard(el.dataset.t, back); });
+    $('sSeed').onclick = () => { if (G.coins < 60) return; G.coins -= 60; const s2 = rollSeed(); const isNew = !G.species[s2.id]; G.species[s2.id] = 1; pickS = s2.id; save(); renderHud(); sfx.coin(); shopCard(back); popText(W / 2, H * 0.3, `开出了 ${s2.name}${isNew ? '（新树种！）' : ''}`, 'big'); };
+}
+// 展开一个树坯：大图 + 说明；没买的显示价格和「买下」，买了的显示「用它创作」（可选树种）
+function trunkCard(tid, back) {
+    const t0 = TRUNK[tid], own = !!G.trunks[tid];
+    let sp = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
+    const render = () => {
+        showCard(`<div class="ctop"><button class="btn ghost" id="tBack">返回</button>${own ? '<button class="btn green" id="tGo">用它创作 🎨</button>' : `<button class="btn" id="tBuy" ${G.coins < t0.price ? 'disabled' : ''}>买下 💰${t0.price}</button>`}</div>
+            <h2>${t0.name}</h2><div class="sub" style="font-size:13px;margin-top:-2px">${t0.d}</div>
+            <img src="${trunkPreview(t0, 520)}" style="width:100%;max-width:300px;display:block;margin:6px auto;background:#fff;border-radius:16px">
+            ${own ? `<h3>用哪种树</h3><div class="chips">${SPECIES.filter(s2 => G.species[s2.id]).map(s2 => `<div class="chip ${sp === s2.id ? 'on' : ''}" data-s="${s2.id}"><img src="${specIcon(s2)}" style="width:100%">${s2.name}</div>`).join('')}</div>`
+                : `<div class="sub" style="font-size:12px">${G.coins < t0.price ? '金币还不够，先去照剪影修几盆吧' : '买下后可以一直用'}</div>`}`);
+        $('tBack').onclick = () => shopCard(back);
+        if (own) {
+            $('tGo').onclick = () => { audio(); pickS = sp; hideCard(); startRound('free', sp, tid); popText(W / 2, H * 0.3, '没有剪影，想剪成什么样都行', 'big'); };
+            $('card').querySelectorAll('[data-s]').forEach(el => el.onclick = () => { sp = el.dataset.s; render(); });
+        } else $('tBuy').onclick = () => { if (G.coins < t0.price) return; G.coins -= t0.price; G.trunks[tid] = 1; save(); renderHud(); sfx.coin(); popText(W / 2, H * 0.3, `买下了 ${t0.name}`, 'big'); trunkCard(tid, back); };
+    };
+    render();
+}
 $('doneBtn').onclick = finish;
 
 // ============================================================
@@ -1394,7 +1466,7 @@ function resize() {
     const top = document.querySelector('.hud').getBoundingClientRect().bottom, bot = document.querySelector('.bottom').getBoundingClientRect().top;
     S = Math.min(W * 0.4, (bot - top) * 0.3); ROOT_X = W / 2; TABLE_Y = bot - 0.42 * S; ROOT_Y = TABLE_Y - 0.36 * S;
     clearLitter(); winCv.width = W * DPR; winCv.height = H * DPR;
-    if (tree) startRound(tree.form.id, tree.spec.id);
+    if (tree) startRound(tree.form.id, tree.spec.id, tree.form.trunk);
 }
 addEventListener('resize', resize); resize();
 let last = performance.now();
