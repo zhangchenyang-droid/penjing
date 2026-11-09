@@ -262,10 +262,10 @@ function growTrunk(t) {
     return any;
 }
 function addNode(t, x, y, parent, o = {}) {
-    const n = Object.assign({ x, y, p: typeof parent === 'number' ? parent : parent ? parent.i : -1, i: t.nodes.length, alive: true, trunk: false, scaf: false, pad: -1, kids: 0 }, o);
+    const n = Object.assign({ x, y, p: typeof parent === 'number' ? parent : parent ? parent.i : -1, i: t.nodes.length, alive: true, trunk: false, scaf: false, pad: -1, kids: 0, bt: T }, o);
     t.nodes.push(n); if (n.p >= 0) t.nodes[n.p].kids++;
     const k = gkey(t, x, y); let c = t.grid.get(k); if (!c) t.grid.set(k, c = []); c.push(n);
-    t.dirty = true; return n;
+    t.dirty = true; t.animTo = T + 0.65; return n;
 }
 const gkey = (t, x, y) => (Math.floor(x / t.DI) * 4096 + Math.floor(y / t.DI));
 function rebuildGrid(t) { t.grid = new Map(); for (const n of t.nodes) if (n.alive) { const k = gkey(t, n.x, n.y); let c = t.grid.get(k); if (!c) t.grid.set(k, c = []); c.push(n); } }
@@ -414,7 +414,8 @@ function leafItems(t, L, scale = 1) {
             const h1 = hash(n.i * 31 + k), h2 = hash(n.i * 17 + k * 3), h3 = hash(n.i * 7 + k * 5);
             let a = base + (h1 - 0.5) * 2.6; a = a + Math.atan2(Math.sin(-Math.PI / 2 - a), Math.cos(-Math.PI / 2 - a)) * 0.18;
             if (n.lost && (n.lost >> k & 1)) continue;   // 被刮掉的那片
-            items.push({ x: n.x + Math.cos(a) * len0 * 0.12, y: n.y + Math.sin(a) * len0 * 0.12, a, len: len0 * (0.75 + 0.45 * h2), tone: h3, n, k });
+            const gx = n.dx ?? n.x, gy = n.dy ?? n.y, gl = leafK(n); if (gl <= 0.02) continue;
+            items.push({ x: gx + Math.cos(a) * len0 * 0.12 * gl, y: gy + Math.sin(a) * len0 * 0.12 * gl, a, len: len0 * (0.75 + 0.45 * h2) * gl, tone: h3, n, k });
         }
     }
     return items;
@@ -426,7 +427,7 @@ function paintFoliage(g, t, L, scale = 1) {
     const items = leafItems(t, L, scale);
     items.sort((p, q) => p.tone - q.tone);   // 暗的先画，亮的盖在上面
     const tone = it => spr.tone[it.tone < 0.35 ? 0 : it.tone < 0.8 ? 1 : 2];
-    if (sp.needle) { for (const it of items) put(tone(it), it.n.x, it.n.y, it.a, it.len); g.setTransform(M); return; }
+    if (sp.needle) { for (const it of items) put(tone(it), it.n.dx ?? it.n.x, it.n.dy ?? it.n.y, it.a, it.len); g.setTransform(M); return; }
     if (sp.petals) {
         for (const it of items) { if (it.tone < 0.3) put(spr.extra, it.x, it.y, it.a, it.len * 1.1); else put(tone(it), it.x, it.y, it.a, it.len * 0.62 / 0.6); }
         g.setTransform(M); return;
@@ -434,34 +435,41 @@ function paintFoliage(g, t, L, scale = 1) {
     if (spr.shadow) for (const it of items) put(spr.shadow, it.x + 1.2, it.y + 2, it.a, it.len);
     for (const it of items) put(tone(it), it.x, it.y, it.a, it.len);
     g.setTransform(M);
-    if (sp.raceme) for (const n of L) { if (hash(n.i * 41) > 0.32) continue; const hl = len0 * (1.3 + hash(n.i) * 0.8); for (let j = 0; j < 9; j++) { const q = j / 8, r = len0 * 0.2 * (1 - q * 0.6); g.fillStyle = shade(sp.raceme, 0.85 + q * 0.35); g.beginPath(); g.ellipse(n.x + Math.sin(j * 1.7) * r * 0.6, n.y + q * hl, r, r * 0.8, 0, 0, TAU); g.fill(); } }
+    if (sp.raceme) for (const n of L) { if (hash(n.i * 41) > 0.32) continue; const gl = leafK(n); if (gl <= 0.02) continue; const hl = len0 * (1.3 + hash(n.i) * 0.8) * gl; for (let j = 0; j < 9; j++) { const q = j / 8, r = len0 * 0.2 * (1 - q * 0.6); g.fillStyle = shade(sp.raceme, 0.85 + q * 0.35); g.beginPath(); g.ellipse((n.dx ?? n.x) + Math.sin(j * 1.7) * r * 0.6, (n.dy ?? n.y) + q * hl, r * gl, r * 0.8 * gl, 0, 0, TAU); g.fill(); } }
 }
+// 生长动画：每个节点出生后 GROW_DUR 秒内从父节点伸出；叶子稍晚一点再展开
+const GROW_DUR = 0.35, ease = x => 1 - (1 - x) ** 3;
+const growK = n => n.bt === undefined ? 1 : ease(clamp((T - n.bt) / GROW_DUR, 0, 1));
+const leafK = n => n.bt === undefined ? 1 : ease(clamp((T - n.bt - 0.15) / 0.45, 0, 1));
 function drawTree(g, t, ox = 0, oy = 0, sc = 1) {
     const N = t.nodes, sp = t.spec, bark = sp.trunk, barkL = shade(bark, 1.35), barkD = shade(bark, 0.62);
     g.save(); g.translate(ox, oy); g.scale(sc, sc); g.lineCap = 'round'; g.lineJoin = 'round';
+    // 生长插值：新枝从父节点"伸"出来（父节点还在伸时跟着父节点的当前端点走）
+    for (const n of N) { if (!n.alive) continue; const g0 = growK(n); if (n.p < 0) { n.dx = n.x; n.dy = n.y; } else { const p = N[n.p], px = p.dx ?? p.x, py = p.dy ?? p.y; n.dx = px + (n.x - px) * g0; n.dy = py + (n.y - py) * g0; } }
+    const X = n => n.dx ?? n.x, Y = n => n.dy ?? n.y, Wd = n => n.ws ?? n.w;
     const segs = []; for (const n of N) if (n.alive && n.p >= 0) segs.push(n);
-    segs.sort((a, b) => b.w - a.w);
+    segs.sort((a, b) => Wd(b) - Wd(a));
     // 根盘：主干底部向两边抓住土面
     const root = N[0], rw = root.w || S * 0.12;
     g.fillStyle = bark;
     for (const [dx, len] of [[-1, 1], [1, 0.9], [-1, 0.55], [1, 0.5]]) { g.beginPath(); g.moveTo(root.x - rw * 0.45, root.y - rw * 0.3); g.quadraticCurveTo(root.x + dx * rw * 0.4, root.y + 1, root.x + dx * rw * (0.9 + len), root.y + 3); g.lineTo(root.x + dx * rw * 0.3, root.y + 3); g.lineTo(root.x + rw * 0.45, root.y - rw * 0.3); g.closePath(); g.fill(); }
     // 枝干：每段画成梯形（父端粗、子端细），亮面在左上、暗面在右下
     const quad = (p, n, wp, wn) => {
-        const dx = n.x - p.x, dy = n.y - p.y, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
-        g.beginPath(); g.moveTo(p.x + nx * wp / 2, p.y + ny * wp / 2); g.lineTo(n.x + nx * wn / 2, n.y + ny * wn / 2); g.lineTo(n.x - nx * wn / 2, n.y - ny * wn / 2); g.lineTo(p.x - nx * wp / 2, p.y - ny * wp / 2); g.closePath(); g.fill();
-        g.beginPath(); g.arc(n.x, n.y, wn / 2, 0, TAU); g.fill();
+        const dx = X(n) - X(p), dy = Y(n) - Y(p), l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+        g.beginPath(); g.moveTo(X(p) + nx * wp / 2, Y(p) + ny * wp / 2); g.lineTo(X(n) + nx * wn / 2, Y(n) + ny * wn / 2); g.lineTo(X(n) - nx * wn / 2, Y(n) - ny * wn / 2); g.lineTo(X(p) - nx * wp / 2, Y(p) - ny * wp / 2); g.closePath(); g.fill();
+        g.beginPath(); g.arc(X(n), Y(n), wn / 2, 0, TAU); g.fill();
     };
-    g.fillStyle = bark; for (const n of segs) { const p = N[n.p]; quad(p, n, Math.max(n.w, Math.min(p.w, n.w * 1.6)), n.w); }
+    g.fillStyle = bark; for (const n of segs) { const p = N[n.p]; quad(p, n, Math.max(Wd(n), Math.min(Wd(p), Wd(n) * 1.6)), Wd(n)); }
     // 暗面
     g.fillStyle = 'rgba(30,20,15,0.28)';
-    for (const n of segs) { if (n.w < 2.5) continue; const p = N[n.p], dx = n.x - p.x, dy = n.y - p.y, l = Math.hypot(dx, dy) || 1, k = (n.w * 0.28) * (dy / l >= 0 ? 1 : -1); const o = { x: n.x - dy / l * k, y: n.y + dx / l * k }, q = { x: p.x - dy / l * k, y: p.y + dx / l * k }; quad(q, o, Math.max(n.w, Math.min(p.w, n.w * 1.6)) * 0.45, n.w * 0.45); }
+    for (const n of segs) { if (Wd(n) < 2.5) continue; const p = N[n.p], dx = X(n) - X(p), dy = Y(n) - Y(p), l = Math.hypot(dx, dy) || 1, k = (Wd(n) * 0.28) * (dy / l >= 0 ? 1 : -1); const o = { x: X(n) - dy / l * k, y: Y(n) + dx / l * k }, q = { x: X(p) - dy / l * k, y: Y(p) + dx / l * k }; quad(q, o, Math.max(Wd(n), Math.min(Wd(p), Wd(n) * 1.6)) * 0.45, Wd(n) * 0.45); }
     // 亮面 + 树皮纹
     g.fillStyle = 'rgba(255,245,225,0.22)';
-    for (const n of segs) { if (n.w < 3) continue; const p = N[n.p], dx = n.x - p.x, dy = n.y - p.y, l = Math.hypot(dx, dy) || 1, k = -(n.w * 0.26) * (dy / l >= 0 ? 1 : -1); const o = { x: n.x - dy / l * k, y: n.y + dx / l * k }, q = { x: p.x - dy / l * k, y: p.y + dx / l * k }; quad(q, o, Math.max(n.w, Math.min(p.w, n.w * 1.6)) * 0.3, n.w * 0.3); }
+    for (const n of segs) { if (Wd(n) < 3) continue; const p = N[n.p], dx = X(n) - X(p), dy = Y(n) - Y(p), l = Math.hypot(dx, dy) || 1, k = -(Wd(n) * 0.26) * (dy / l >= 0 ? 1 : -1); const o = { x: X(n) - dy / l * k, y: Y(n) + dx / l * k }, q = { x: X(p) - dy / l * k, y: Y(p) + dx / l * k }; quad(q, o, Math.max(Wd(n), Math.min(Wd(p), Wd(n) * 1.6)) * 0.3, Wd(n) * 0.3); }
     g.strokeStyle = barkD; g.lineWidth = 1;
-    for (const n of segs) { if (n.w < 7) continue; const p = N[n.p]; for (let k = 0; k < 2; k++) { const r = hash(n.i * 3 + k), q = 0.2 + r * 0.6, off = (hash(n.i * 7 + k) - 0.5) * n.w * 0.6, dx = n.x - p.x, dy = n.y - p.y, l = Math.hypot(dx, dy) || 1, x = p.x + dx * q - dy / l * off, y = p.y + dy * q + dx / l * off; g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx * 0.35, y + dy * 0.35); g.stroke(); } }
+    for (const n of segs) { if (Wd(n) < 7) continue; const p = N[n.p]; for (let k = 0; k < 2; k++) { const r = hash(n.i * 3 + k), q = 0.2 + r * 0.6, off = (hash(n.i * 7 + k) - 0.5) * Wd(n) * 0.6, dx = X(n) - X(p), dy = Y(n) - Y(p), l = Math.hypot(dx, dy) || 1, x = X(p) + dx * q - dy / l * off, y = Y(p) + dy * q + dx / l * off; g.beginPath(); g.moveTo(x, y); g.lineTo(x + dx * 0.35, y + dy * 0.35); g.stroke(); } }
     // 断口：露出浅色木头切面
-    for (const n of N) if (n.alive && n.cut && n.kids === 0) { const p = n.p >= 0 ? N[n.p] : n, a = Math.atan2(n.y - p.y, n.x - p.x), r = Math.max(2, n.w * 0.55); g.save(); g.translate(n.x, n.y); g.rotate(a); g.fillStyle = '#e9d6b0'; g.beginPath(); g.ellipse(0, 0, r * 0.45, r, 0, 0, TAU); g.fill(); g.strokeStyle = 'rgba(150,110,70,0.6)'; g.lineWidth = 0.8; g.beginPath(); g.ellipse(0, 0, r * 0.22, r * 0.5, 0, 0, TAU); g.stroke(); g.restore(); }
+    for (const n of N) if (n.alive && n.cut && n.kids === 0) { const p = n.p >= 0 ? N[n.p] : n, a = Math.atan2(Y(n) - Y(p), X(n) - X(p)), r = Math.max(2, Wd(n) * 0.55); g.save(); g.translate(X(n), Y(n)); g.rotate(a); g.fillStyle = '#e9d6b0'; g.beginPath(); g.ellipse(0, 0, r * 0.45, r, 0, 0, TAU); g.fill(); g.strokeStyle = 'rgba(150,110,70,0.6)'; g.lineWidth = 0.8; g.beginPath(); g.ellipse(0, 0, r * 0.22, r * 0.5, 0, 0, TAU); g.stroke(); g.restore(); }
     // 叶子：一片片真实的叶形（每个树种不一样）
     const L = []; for (const n of N) if (n.alive && n.leaf) L.push(n);
     paintFoliage(g, t, L);
@@ -908,7 +916,12 @@ function updateTree(dt) {
             if (a || b) tree.dirty = true;
         }
     }
-    cacheT -= dt; if (tree.dirty && cacheT <= 0) { cacheT = tree.mature ? 0.07 : 0.12; renderTreeCache(); }
+    // 生长动画期间每帧重画（枝条伸出、叶子展开、枝干慢慢变粗）；静止后只在有变化时重画
+    const animating = T < (tree.animTo || 0);
+    if (animating) { const k = Math.min(1, dt * 6); for (const n of tree.nodes) if (n.alive && n.w !== undefined) n.ws = n.ws === undefined ? n.w * 0.4 : n.ws + (n.w - n.ws) * k; }
+    else if (tree.wsLive) { for (const n of tree.nodes) n.ws = undefined; tree.dirty = true; }
+    tree.wsLive = animating;
+    cacheT -= dt; if ((tree.dirty || animating) && cacheT <= 0) { cacheT = animating ? 0 : tree.mature ? 0.07 : 0.12; renderTreeCache(); }
     simT -= dt; if (simT <= 0 && phase === 'live') { simT = 0.3; simVal = similarity(tree); renderMeter(); }
 }
 function drawFormRef(g, f, ox, oy, s, mono = '#3c4a3e') {
