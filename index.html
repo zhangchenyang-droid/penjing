@@ -1102,7 +1102,7 @@ function startWin(perfect = true) {
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     const seal = sealSpot(z);
     win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect,
-        starAt: 0.7, sealAt: 0.7 + 3 * 0.3 + 0.25, tapAt: perfect ? 0.7 + 3 * 0.3 + 0.25 + 0.75 : 0.7 + 3 * 0.3 + 0.3, sparks: [] };
+        starAt: 0.6, sealAt: 0.6 + 2 * 0.17 + 0.18, tapAt: perfect ? 0.6 + 2 * 0.17 + 0.18 + 0.75 : 0.6 + 2 * 0.17 + 0.45, sparks: [] };   // 星星哒哒哒连着出，最后一颗刚落定印章就落下
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
 }
@@ -1191,14 +1191,14 @@ function starPath(g, cx, cy, R) { g.beginPath(); for (let i = 0; i < 10; i++) { 
 function drawStars(g, t, cy, fade) {
     const R = 14, gap = 36;
     for (let i = 0; i < 3; i++) {
-        const t0 = win.starAt + i * 0.3, lt = t - t0; if (lt < 0) continue;
+        const t0 = win.starAt + i * 0.17, lt = t - t0; if (lt < 0) continue;
         const cx = W / 2 + (i - 1) * gap, got = i < win.st;
         if (!got) { const a = clamp(lt / 0.3, 0, 1) * fade; g.strokeStyle = `rgba(255,220,150,${0.4 * a})`; g.lineWidth = 1.5; starPath(g, cx, cy, R); g.stroke(); continue; }
         if (!win['s' + i]) {
             win['s' + i] = 1; tone([784, 988, 1175][i], 0.35, 0.045, 'triangle'); tone([1568, 1976, 2350][i], 0.25, 0.015, 'sine', 0.03);
             for (let k = 0; k < 10; k++) { const a = k / 10 * TAU + rand(-0.2, 0.2), v = rand(60, 120); win.sparks.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: t, life: rand(0.35, 0.6) }); }
         }
-        const k = easeOutBack(clamp(lt / 0.35, 0, 1)), sc2 = k * (1 + 0.08 * Math.sin(t * 3 + i)), rot = (1 - clamp(lt / 0.35, 0, 1)) * -1.2;
+        const k = easeOutBack(clamp(lt / 0.26, 0, 1)), sc2 = k * (1 + 0.08 * Math.sin(t * 3 + i)), rot = (1 - clamp(lt / 0.26, 0, 1)) * -1.2;
         // 落定瞬间的一圈光
         const q = lt / 0.45; if (q < 1) { g.strokeStyle = `rgba(255,214,120,${0.6 * (1 - q) * fade})`; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R * (0.8 + q * 1.4), 0, TAU); g.stroke(); }
         g.save(); g.translate(cx, cy); g.rotate(rot); g.scale(sc2, sc2); g.globalAlpha = fade;
