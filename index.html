@@ -1404,8 +1404,8 @@ function setupCard() {
     phase = 'setup';
     pickF = pickF || (FORMS.find(f => unlocked(f) && !G.forms[f.id]) || FORMS.filter(unlocked).pop()).id;
     pickS = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
-    const render = () => showCard(`<div class="ctop"><button class="btn ${freeOpen() ? '' : 'ghost'}" id="cFree">${freeOpen() ? '自由创作 🎨' : `🔒 自由创作 ⭐${starTotal()}/${FREE_NEED}`}</button><button class="btn green" id="cPlant">种下 🌱</button></div>
-        <h2>下一盆</h2><div class="sub" style="font-size:12px">选一个造型、一种树。小树苗会自己长，你边看边剪，照右上角的剪影修</div>
+    const render = () => showCard(`<div class="ctop" style="align-items:center"><h2 style="margin:0 auto 0 4px;white-space:nowrap">下一盆</h2><button class="btn ${freeOpen() ? '' : 'ghost'}" id="cFree" style="${freeOpen() ? '' : 'font-size:13px;padding:8px 10px'}">${freeOpen() ? '自由创作 🎨' : `🔒自由创作 ${starTotal()}/${FREE_NEED}⭐`}</button><button class="btn green" id="cPlant">种下 🌱</button></div>
+        <div class="sub" style="font-size:12px">选一个造型、一种树。小树苗会自己长，你边看边剪，照右上角的剪影修</div>
         <h3>造型</h3><div class="chips">${FORMS.map(f => { const u = unlocked(f), b = G.forms[f.id]; return `<div class="chip ${pickF === f.id ? 'on' : ''} ${u ? '' : 'off'}" data-f="${f.id}">${formThumb(f)}${u ? f.name : '🔒'}<small>${b ? '★'.repeat(b) : u ? '新' : ''}</small></div>`; }).join('')}</div>
         <h3>树种</h3><div class="chips">${SPECIES.filter(s => G.species[s.id]).map(s => `<div class="chip ${pickS === s.id ? 'on' : ''}" data-s="${s.id}"><img src="${specIcon(s)}" style="width:100%">${s.name}<small>${'★'.repeat(s.rar)}</small></div>`).join('')}</div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:12px;background:#fff;border-radius:14px;padding:8px 10px;text-align:left">
