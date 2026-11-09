@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>盆景剪影</title>
+<title>剪一盆春</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#efe6d6">
@@ -961,7 +961,7 @@ function formFit(f, w, h) {
 }
 function renderRef(f) {
     const el = $('ref'); el.classList.remove('hidden'); el.style.top = (document.querySelector('.hud').getBoundingClientRect().bottom + 4) + 'px';
-    $('refName').textContent = f.name + ' · ' + f.origin.split(' ')[0];
+    $('refName').textContent = f.name;
     const cv = $('refCv'), g = cv.getContext('2d'), fit = formFit(f, cv.width, cv.height);
     g.clearRect(0, 0, cv.width, cv.height); drawFormRef(g, f, fit.ox, fit.oy, fit.s);
 }
@@ -1203,7 +1203,7 @@ function frame(now) {
 renderHud();
 if (!G.seen) {
     showCard(`<div class="ctop"><button class="btn green" id="cGo">开始</button></div>
-        <div style="font-size:44px">🌳✂️</div><h2>盆景剪影</h2>
+        <div style="font-size:44px">🌳✂️</div><h2>剪一盆春</h2>
         <div class="sub" style="text-align:left;display:inline-block;font-size:15px">
         ① 小树苗会自己<b>一边长一边分叉</b><br>
         ② <b>手指划过枝条</b>就能剪，剪掉的分叉<b>不会再往那边长</b><br>
