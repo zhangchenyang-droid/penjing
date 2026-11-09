@@ -1491,8 +1491,8 @@ $('shopBtn').onclick = () => { if (phase === 'win') return; audio(); shopCard();
 function shopCard(back) {
     const sp = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
     showCard(`<div class="ctop">${back ? '<button class="btn ghost" id="sBack">返回</button>' : ''}<button class="btn" id="cClose">关闭</button></div><h2>商店</h2>
-        <h3>树坯 · 自由创作</h3>${freeOpen() ? `<div class="sub" style="font-size:12px;text-align:left;margin:-4px 0 6px">买下的树坯可以一直用：没有剪影，想剪成什么样都行</div>
-        <div class="chips">${TRUNKS.map(t0 => `<div class="chip tchip" data-t="${t0.id}"><img src="${trunkPreview(t0, 120)}" style="width:100%">${t0.name}<small>${G.trunks[t0.id] ? '已拥有' : t0.price ? '💰' + t0.price : '免费'}</small>${G.trunks[t0.id] ? '<span class="own">✓</span>' : ''}</div>`).join('')}</div>`
+        <h3>树坯 · 自由创作</h3>${freeOpen() ? `<div class="sub" style="font-size:12px;text-align:left;margin:-4px 0 6px">一个树坯种一盆：没有剪影，想剪成什么样都行</div>
+        <div class="chips">${TRUNKS.map(t0 => `<div class="chip tchip" data-t="${t0.id}"><img src="${trunkPreview(t0, 120)}" style="width:100%">${t0.name}<small>${t0.price ? '💰' + t0.price : '免费'}</small></div>`).join('')}</div>`
         : `<div style="background:#fff;border-radius:14px;padding:12px;font-size:13px;font-weight:800;line-height:1.7">🔒 闯关集齐 <b style="color:#b8862a">${FREE_NEED}</b> 颗星解锁<br><span style="font-weight:600;opacity:.7">现在 ⭐${starTotal()}/${FREE_NEED} · 修到 100% 才有三星</span>
             <div style="height:8px;border-radius:4px;background:#efe3cc;margin-top:6px;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, starTotal() / FREE_NEED * 100)}%;background:linear-gradient(90deg,#f2c94c,#e0a020)"></i></div></div>`}
         <h3>种子</h3>
@@ -1504,21 +1504,24 @@ function shopCard(back) {
     if (freeOpen() && !G.freeSeen) { G.freeSeen = true; save(); }
     $('sSeed').onclick = () => { if (G.coins < 60) return; G.coins -= 60; const s2 = rollSeed(); const isNew = !G.species[s2.id]; G.species[s2.id] = 1; pickS = s2.id; save(); renderHud(); sfx.coin(); shopCard(back); popText(W / 2, H * 0.3, `开出了 ${s2.name}${isNew ? '（新树种！）' : ''}`, 'big'); };
 }
-// 展开一个树坯：大图 + 说明；没买的显示价格和「买下」，买了的显示「用它创作」（可选树种）
+// 展开一个树坯：大图 + 说明 + 选树种；买一次种一盆（直干坯免费）
 function trunkCard(tid, back) {
-    const t0 = TRUNK[tid], own = !!G.trunks[tid];
+    const t0 = TRUNK[tid];
     let sp = pickS && G.species[pickS] ? pickS : G.cur.species in G.species ? G.cur.species : 'ficus';
     const render = () => {
-        showCard(`<div class="ctop"><button class="btn ghost" id="tBack">返回</button>${own ? '<button class="btn green" id="tGo">用它创作 🎨</button>' : `<button class="btn" id="tBuy" ${G.coins < t0.price ? 'disabled' : ''}>买下 💰${t0.price}</button>`}</div>
+        const poor = G.coins < t0.price;
+        showCard(`<div class="ctop"><button class="btn ghost" id="tBack">返回</button><button class="btn ${t0.price ? '' : 'green'}" id="tBuy" ${poor ? 'disabled' : ''}>${t0.price ? `买下创作 💰${t0.price}` : '免费创作 🎨'}</button></div>
             <h2>${t0.name}</h2><div class="sub" style="font-size:13px;margin-top:-2px">${t0.d}</div>
             <img src="${trunkPreview(t0, 520)}" style="width:100%;max-width:300px;display:block;margin:6px auto;background:#fff;border-radius:16px">
-            ${own ? `<h3>用哪种树</h3><div class="chips">${SPECIES.filter(s2 => G.species[s2.id]).map(s2 => `<div class="chip ${sp === s2.id ? 'on' : ''}" data-s="${s2.id}"><img src="${specIcon(s2)}" style="width:100%">${s2.name}</div>`).join('')}</div>`
-                : `<div class="sub" style="font-size:12px">${G.coins < t0.price ? '金币还不够，先去照剪影修几盆吧' : '买下后可以一直用'}</div>`}`);
+            <h3>用哪种树</h3><div class="chips">${SPECIES.filter(s2 => G.species[s2.id]).map(s2 => `<div class="chip ${sp === s2.id ? 'on' : ''}" data-s="${s2.id}"><img src="${specIcon(s2)}" style="width:100%">${s2.name}</div>`).join('')}</div>
+            <div class="sub" style="font-size:12px;margin-top:6px">${poor ? '金币还不够，先去照剪影修几盆吧' : t0.price ? '一个树坯种一盆，修好可以在园子里卖掉' : '直干坯不要钱，随时可以种'}</div>`);
         $('tBack').onclick = () => shopCard(back);
-        if (own) {
-            $('tGo').onclick = () => { audio(); pickS = sp; hideCard(); startRound('free', sp, tid); popText(W / 2, H * 0.3, '没有剪影，想剪成什么样都行', 'big'); };
-            $('card').querySelectorAll('[data-s]').forEach(el => el.onclick = () => { sp = el.dataset.s; render(); });
-        } else $('tBuy').onclick = () => { if (G.coins < t0.price) return; G.coins -= t0.price; G.trunks[tid] = 1; save(); renderHud(); sfx.coin(); popText(W / 2, H * 0.3, `买下了 ${t0.name}`, 'big'); trunkCard(tid, back); };
+        $('card').querySelectorAll('[data-s]').forEach(el => el.onclick = () => { sp = el.dataset.s; render(); });
+        $('tBuy').onclick = () => {
+            if (G.coins < t0.price) return;
+            if (t0.price) { G.coins -= t0.price; save(); renderHud(); sfx.coin(); }
+            audio(); pickS = sp; hideCard(); startRound('free', sp, tid); popText(W / 2, H * 0.3, '没有剪影，想剪成什么样都行', 'big');
+        };
     };
     render();
 }
