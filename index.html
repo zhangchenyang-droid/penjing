@@ -162,31 +162,31 @@ const sfx = {
 // ============================================================
 // 剪影 = 经典盆景样式。pads = 一片片扁平的叶层 [cx, cy, rx, ry]；trunks = 主干走向（单位坐标，盆口中心 (0,1)，向上 y 变小）
 const FORMS = [
-    { id: 'chokkan', name: '直干式', origin: '日式', d: '主干笔直，叶层左右交错往上收成三角形',
+    { id: 'chokkan', name: '直干式', origin: '', d: '主干笔直，叶层左右交错往上收成三角形',
         trunks: [[[0, 1], [0.02, 0.3], [0, -0.75]]],
         blobs: [[-0.42, 0.36, 0.36, 0.1], [0.42, 0.13, 0.36, 0.1], [-0.36, -0.12, 0.3, 0.09], [0.32, -0.34, 0.27, 0.09], [0, -0.52, 0.24, 0.09], [0, -0.78, 0.17, 0.1]] },
-    { id: 'shakan', name: '斜干式', origin: '日式', d: '主干斜着伸出去，另一侧留一片叶层压住重心',
+    { id: 'shakan', name: '斜干式', origin: '', d: '主干斜着伸出去，另一侧留一片叶层压住重心',
         trunks: [[[0, 1], [0.25, 0.45], [0.55, -0.3]]],
         blobs: [[-0.18, 0.38, 0.3, 0.1], [0.75, 0.18, 0.3, 0.1], [0.2, -0.02, 0.28, 0.09], [0.78, -0.2, 0.24, 0.09], [0.55, -0.48, 0.26, 0.12]] },
-    { id: 'moyogi', name: '模样木', origin: '日式 · 曲干', d: '主干 S 形弯曲，叶层长在每个弯的外侧',
+    { id: 'moyogi', name: '模样木', origin: '曲干', d: '主干 S 形弯曲，叶层长在每个弯的外侧',
         trunks: [[[0, 1], [0.22, 0.62], [-0.1, 0.22], [0.12, -0.2], [-0.02, -0.66]]],
         blobs: [[0.52, 0.45, 0.32, 0.1], [-0.46, 0.12, 0.33, 0.1], [0.44, -0.2, 0.3, 0.09], [-0.32, -0.44, 0.25, 0.09], [0.02, -0.74, 0.22, 0.11]] },
-    { id: 'sokan', name: '双干式', origin: '日式', d: '一个根上分出一高一矮两根主干',
+    { id: 'sokan', name: '双干式', origin: '', d: '一个根上分出一高一矮两根主干',
         trunks: [[[0, 1], [-0.12, 0.4], [-0.15, -0.62]], [[0, 1], [0.14, 0.6], [0.32, 0.02]]],
         blobs: [[-0.56, 0.16, 0.3, 0.1], [-0.2, -0.3, 0.3, 0.1], [-0.15, -0.72, 0.22, 0.11], [0.62, 0.22, 0.28, 0.09], [0.34, -0.12, 0.24, 0.1]] },
-    { id: 'bunjin', name: '文人木', origin: '日式', d: '主干瘦高曲折，只在顶上留一两片',
+    { id: 'bunjin', name: '文人木', origin: '', d: '主干瘦高曲折，只在顶上留一两片',
         trunks: [[[0, 1], [0.15, 0.45], [-0.1, -0.1], [0.12, -0.6]]],
         blobs: [[0.34, -0.7, 0.3, 0.09], [-0.2, -0.47, 0.2, 0.07], [0.14, -0.88, 0.15, 0.07]] },
-    { id: 'fuki', name: '风吹式', origin: '日式', d: '枝叶全被风吹向一边',
+    { id: 'fuki', name: '风吹式', origin: '', d: '枝叶全被风吹向一边',
         trunks: [[[0, 1], [0.28, 0.45], [0.55, -0.15]]],
         blobs: [[0.72, 0.38, 0.32, 0.08], [0.92, 0.06, 0.3, 0.08], [0.98, -0.24, 0.28, 0.08], [0.72, -0.36, 0.22, 0.08]] },
     { id: 'yunpian', name: '云片式', origin: '中式 · 扬派', d: '主干一寸三弯，叶层又薄又平，像一片片云',
         trunks: [[[0, 1], [-0.15, 0.72], [0.12, 0.46], [-0.12, 0.16], [0.1, -0.14], [-0.05, -0.5]]],
         blobs: [[-0.48, 0.3, 0.36, 0.065], [0.46, 0.05, 0.36, 0.065], [-0.42, -0.22, 0.32, 0.065], [0.36, -0.42, 0.3, 0.065], [-0.04, -0.66, 0.28, 0.075]] },
-    { id: 'hankengai', name: '半悬崖', origin: '日式 · 中式', d: '主干横着伸出盆外', stand: true,
+    { id: 'hankengai', name: '半悬崖', origin: '中式', d: '主干横着伸出盆外', stand: true,
         trunks: [[[0, 1], [0.15, 0.75], [0.62, 0.8], [0.95, 0.95]]],
         blobs: [[0.92, 0.84, 0.3, 0.1], [0.48, 0.62, 0.25, 0.09], [-0.05, 0.45, 0.26, 0.12]] },
-    { id: 'kengai', name: '悬崖式', origin: '日式 · 中式', d: '主干翻出盆沿，一路垂到盆下', stand: true,
+    { id: 'kengai', name: '悬崖式', origin: '中式', d: '主干翻出盆沿，一路垂到盆下', stand: true,
         trunks: [[[0, 1], [0.1, 0.76], [0.45, 0.82], [0.7, 1.2], [0.82, 1.55]]],
         blobs: [[0.05, 0.55, 0.26, 0.12], [0.62, 1.0, 0.24, 0.09], [0.88, 1.32, 0.25, 0.09], [0.78, 1.62, 0.2, 0.08]] },
     { id: 'liutai', name: '六台三托一顶', origin: '中式 · 苏派', d: '左右六片「台」、背后三片「托」、顶上一片「顶」，规矩最严',
@@ -1064,10 +1064,14 @@ function makeSeal(w, h) {
 }
 // 印章位置：盆的左下或右下，哪边空就盖哪边（悬崖式枝叶垂在右边就盖左边）；不歪，规规矩矩
 function sealSpot(z) {
-    const w = 22 / z * 1.2, h = w * 2.1, standH = tree.form.stand ? 0.62 * S : 0, ph = TABLE_Y - ROOT_Y - standH, cy = ROOT_Y + ph * 0.62;
-    const spot = side => ({ x: ROOT_X + side * (0.6 * S + w * 0.5 + 8), y: cy });
-    const busy = side => { const q = spot(side); let n = 0; for (const nd of tree.nodes) if (nd.alive && Math.abs(nd.x - q.x) < w * 0.5 + 24 && Math.abs(nd.y - q.y) < h * 0.5 + 24) n++; return n; };
-    const side = busy(1) <= busy(-1) ? 1 : -1, q = spot(side);
+    const w = 22 / z * 1.2, h = w * 2.1, standH = tree.form.stand ? 0.62 * S : 0, ph = TABLE_Y - ROOT_Y - standH;
+    // 候选：先试盆口上方靠盆边的空处（画面留白里落款），再试盆身两侧
+    const cands = [];
+    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * 0.5 * S, y: ROOT_Y - h * 0.5 - 0.12 * S, pri: 0 });
+    for (const side of [1, -1]) cands.push({ x: ROOT_X + side * (0.6 * S + w * 0.5 + 8), y: ROOT_Y + ph * 0.62, pri: 1 });
+    const busy = q => { let n = 0; for (const nd of tree.nodes) if (nd.alive && Math.abs(nd.x - q.x) < w * 0.5 + 16 && Math.abs(nd.y - q.y) < h * 0.5 + 16) n++; return n; };
+    for (const q of cands) q.n = busy(q);
+    const free = cands.filter(q => q.n === 0), q = free.length ? free[0] : cands.sort((p1, p2) => p1.n - p2.n)[0];
     return { x: q.x, y: q.y, w, h, img: makeSeal(w, h) };
 }
 const winCv = $('winCv'), winG = winCv.getContext('2d');
@@ -1278,7 +1282,7 @@ function formThumb(f) {
 function viewWork(fid, back) {
     const w = G.best[fid], f = FORM[fid], sp = SPEC[w.species];
     showCard(`<div class="ctop"><button class="btn ghost" id="vBack">返回</button><button class="btn green" id="vAgain">再剪一盆</button></div>
-        <h2>${f.name}</h2><div class="sub" style="font-size:12px;margin-top:-2px">${f.origin} · ${f.d}</div>
+        <h2>${f.name}</h2><div class="sub" style="font-size:12px;margin-top:-2px">${f.origin ? f.origin + ' · ' : ''}${f.d}</div>
         <div style="position:relative;margin:8px auto 4px;max-width:330px">
             <img src="${w.img}" style="width:100%;display:block;border-radius:16px;box-shadow:0 6px 18px rgba(60,40,20,.18)">
             <div style="position:absolute;right:8px;top:8px;width:64px;background:rgba(255,255,255,.85);border-radius:10px;padding:3px"><img src="${formIcon(f)}" style="width:100%;display:block"><div style="font-size:9px;font-weight:800;opacity:.6">标准剪影</div></div>
