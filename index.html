@@ -918,7 +918,7 @@ function updateTree(dt) {
     }
     // 生长动画期间每帧重画（枝条伸出、叶子展开、枝干慢慢变粗）；静止后只在有变化时重画
     const animating = T < (tree.animTo || 0);
-    if (animating) { const k = Math.min(1, dt * 6); for (const n of tree.nodes) if (n.alive && n.w !== undefined) n.ws = n.ws === undefined ? n.w * 0.4 : n.ws + (n.w - n.ws) * k; }
+    if (animating) { const k = Math.min(1, dt * 6); for (const n of tree.nodes) if (n.alive && n.w !== undefined) n.ws = n.ws === undefined ? (T - n.bt < 0.1 ? n.w * 0.4 : n.w) : n.ws + (n.w - n.ws) * k; }   // 只有刚长出来的枝从细变粗；老枝（剪断时冒出断口节点也会触发动画）保持原粗细 }
     else if (tree.wsLive) { for (const n of tree.nodes) n.ws = undefined; tree.dirty = true; }
     tree.wsLive = animating;
     cacheT -= dt; if ((tree.dirty || animating) && cacheT <= 0) { cacheT = animating ? 0 : tree.mature ? 0.07 : 0.12; renderTreeCache(); }
