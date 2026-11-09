@@ -38,8 +38,14 @@
     .seal { position: fixed; z-index: 15; width: 66px; height: 66px; border-radius: 9px; background: #b8322a; color: #fbeee0; pointer-events: none;
         display: flex; align-items: center; justify-content: center; text-align: center; font: 900 25px/1.02 "STKaiti", "Kaiti SC", "KaiTi", "Songti SC", serif;
         box-shadow: inset 0 0 0 3px #b8322a, inset 0 0 0 5px rgba(251, 238, 224, .85), 0 3px 8px rgba(80, 20, 10, .25); opacity: .93; transform: translate(-50%, -50%) rotate(-9deg);
-        animation: stamp .42s cubic-bezier(.5, 0, .7, 1.4) both; }
-    @keyframes stamp { 0% { transform: translate(-50%, -50%) rotate(-20deg) scale(2.8); opacity: 0; } 70% { transform: translate(-50%, -50%) rotate(-9deg) scale(.9); opacity: .95; } 100% { transform: translate(-50%, -50%) rotate(-9deg) scale(1); opacity: .93; } }
+        animation: stamp .6s linear both; }
+    /* 盖章：举起悬停 → 猛地压下（略压扁）→ 回弹落定 */
+    @keyframes stamp {
+        0% { transform: translate(-50%, -50%) rotate(-17deg) scale(2.1); opacity: 0; box-shadow: inset 0 0 0 3px #b8322a, inset 0 0 0 5px rgba(251, 238, 224, .85), 0 26px 30px rgba(0, 0, 0, .35); animation-timing-function: cubic-bezier(.2, .8, .4, 1); }
+        42% { transform: translate(-50%, -50%) rotate(-12deg) scale(1.7); opacity: .95; box-shadow: inset 0 0 0 3px #b8322a, inset 0 0 0 5px rgba(251, 238, 224, .85), 0 22px 26px rgba(0, 0, 0, .3); animation-timing-function: cubic-bezier(.7, 0, 1, .6); }
+        62% { transform: translate(-50%, -50%) rotate(-9deg) scale(.9, .86); opacity: .97; box-shadow: inset 0 0 0 3px #b8322a, inset 0 0 0 5px rgba(251, 238, 224, .85), 0 1px 2px rgba(0, 0, 0, .2); animation-timing-function: ease-out; }
+        78% { transform: translate(-50%, -50%) rotate(-9deg) scale(1.04); }
+        100% { transform: translate(-50%, -50%) rotate(-9deg) scale(1); opacity: .93; } }
     .meter.perfect { background: linear-gradient(90deg, #fff6d8, #ffe9a8); box-shadow: 0 0 0 3px rgba(232, 180, 64, .55), 0 2px 0 rgba(90, 70, 40, .15); }
     .meter.perfect .t b { color: #b8862a; } .meter.perfect .bar i { background: linear-gradient(90deg, #f2c94c, #e0a020); }
     #doneBtn.ready { animation: doneBob 1s ease-in-out infinite; }
@@ -81,7 +87,7 @@
     .pop.big { font-size: 19px; color: #5a8a3a; }
     #winCv { position: fixed; inset: 0; z-index: 16; width: 100%; height: 100%; pointer-events: none; }   /* 常驻（不用 display 切换，免得显示那一帧新建图层卡一下） */
     #winCv.on { pointer-events: auto; }
-    .seal.up { z-index: 17; transition: left .55s cubic-bezier(.3, 1.4, .5, 1), top .55s cubic-bezier(.3, 1.4, .5, 1), opacity .3s; }
+    .seal.up { z-index: 17; }
     #gardenBtn.got { animation: gotIt .5s cubic-bezier(.3, 1.6, .5, 1); }
     @keyframes gotIt { 30% { transform: scale(1.35); box-shadow: 0 0 0 8px rgba(255, 210, 110, .55); } }
     .chip.fresh { animation: fresh 1.2s ease-out 2; }
@@ -990,13 +996,6 @@ function celebrate() {
     // 金色光点：从树冠各处飘起
     const L = tree.nodes.filter(n => n.alive && n.leaf);
     for (let i = 0; i < 46 && L.length; i++) { const n = L[Math.floor(Math.random() * L.length)]; cele.motes.push({ x: n.x + rand(-8, 8), y: n.y + rand(-6, 6), vy: -rand(18, 45), vx: rand(-8, 8), r: rand(1.4, 3.2), d: rand(0, 0.9), life: rand(1.6, 2.6), ph: rand(0, TAU) }); }
-    // 盖印
-    setTimeout(() => {
-        if (!tree || !tree.perfect) return;
-        const el = document.createElement('div'); el.className = 'seal'; el.id = 'seal'; el.innerHTML = '圆<br>满';
-        el.style.left = clamp(ROOT_X + 0.62 * S, 50, W - 50) + 'px'; el.style.top = (ROOT_Y - 0.55 * S) + 'px'; document.body.appendChild(el);
-        setTimeout(() => { tone(90, 0.18, 0.08, 'sine', 0, 60); noise(0.08, 300, 0.05); if (navigator.vibrate) navigator.vibrate(25); }, 300);
-    }, 650);
     document.querySelector('.meter').classList.add('perfect'); $('doneBtn').classList.add('ready');
     cele.winAt = Math.max(cele.tidyUntil, T + 1.5);   // 收尾修剪 + 金光扫完 → 变成奖励品
 }
@@ -1048,18 +1047,17 @@ function startWin() {
     const bw = x1 - x0, bh = y1 - y0, pad = 40, img = document.createElement('canvas'); img.width = (bw + pad * 2) * DPR; img.height = (bh + pad * 2) * DPR;
     const g = img.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, (pad - x0) * DPR, (pad - y0) * DPR);
     const real = ctx; ctx = g; drawPot(); ctx = real; g.setTransform(1, 0, 0, 1, (pad - x0) * DPR, (pad - y0) * DPR); g.drawImage(treeCv, 0, 0);
-    const GS = 0.25, glow = document.createElement('canvas'); glow.width = Math.ceil(img.width * GS); glow.height = Math.ceil(img.height * GS);   // 光晕本来就是糊的，用 1/4 分辨率烘，快很多
+    const GS = 0.5, glow = document.createElement('canvas'); glow.width = Math.ceil(img.width * GS); glow.height = Math.ceil(img.height * GS);   // 光晕本来就是糊的，用 1/4 分辨率烘，快很多
     const gg = glow.getContext('2d'), off = glow.width * 2;
-    gg.shadowColor = 'rgba(255,214,120,1)'; gg.shadowBlur = 22 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
+    gg.shadowColor = 'rgba(255,247,226,1)'; gg.shadowBlur = 12 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     win = { t: 0, img, glow, pad, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st };
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
-    const seal = $('seal'); if (seal) seal.classList.add('up');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
 }
 function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; winCv.classList.remove('on'); }
 winCv.addEventListener('pointerdown', () => {
-    if (!win || win.fly >= 0 || win.t < 0.7) return;
+    if (!win || win.fly >= 0 || win.t < 1.25) return;   // 等印章盖完
     audio(); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
     const seal = $('seal'); if (seal) seal.animate([{ opacity: 0.93 }, { opacity: 0 }], { duration: 250, fill: 'forwards' });
     noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
@@ -1091,9 +1089,10 @@ function drawWin(dt) {
         g.strokeStyle = `rgba(232,200,130,${0.18 * a})`; g.lineWidth = 1; g.beginPath(); g.arc(x, cy, R + 6, 0, TAU); g.stroke();
     }
     // 外发光 + 整盆
-    g.save(); g.translate(x, y); g.rotate(rot); g.scale(sc, sc); g.translate(-win.bw / 2 - win.pad, -win.bh / 2 - win.pad);
+    const jolt = win.hit ? Math.exp(-(t - win.hit) * 14) * Math.sin((t - win.hit) * 60) * 2.5 : 0;   // 印章落下时整盆轻轻一震
+    g.save(); g.translate(x, y + jolt); g.rotate(rot); g.scale(sc, sc); g.translate(-win.bw / 2 - win.pad, -win.bh / 2 - win.pad);
     const iw = win.img.width / DPR, ih = win.img.height / DPR;
-    g.globalAlpha = (0.6 + 0.12 * Math.sin(t * 1.8)) * kv; g.globalCompositeOperation = 'lighter'; g.drawImage(win.glow, 0, 0, iw, ih);
+    g.globalAlpha = 0.5 * kv; g.drawImage(win.glow, 0, 0, iw, ih);   // 干净的月白描边光，不用 lighter 叠加（叠在暗底上发脏）
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.drawImage(win.img, 0, 0, iw, ih);
     g.restore();
     // 几点慢慢上浮的微光
@@ -1113,7 +1112,15 @@ function drawWin(dt) {
         if (win.fly < 0 && t > 1) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - 1) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
     }
     // 印章跟着放大后的树
-    const seal = $('seal'); if (seal && win.fly < 0) { seal.style.left = clamp(x + win.bw * sc * 0.36, 50, W - 50) + 'px'; seal.style.top = clamp(y - win.bh * sc * 0.1, 80, H - 80) + 'px'; }
+    // 放大落定后盖「圆满」印：举起 → 压下 → 咚一声，整盆一震，印泥晕开一圈
+    const sx = clamp(x + win.bw * sc * 0.36, 50, W - 50), sy = clamp(y - win.bh * sc * 0.1, 80, H - 80);
+    if (!win.sealed && t >= 0.8 && win.fly < 0) {
+        win.sealed = t; const el = document.createElement('div'); el.className = 'seal up'; el.id = 'seal'; el.innerHTML = '圆<br>满'; document.body.appendChild(el);
+        tone(1200, 0.12, 0.012, 'sine', 0, 900);   // 举起时一点轻响
+    }
+    if (win.sealed && !win.hit && t >= win.sealed + 0.37) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
+    const seal = $('seal'); if (seal && win.fly < 0) { seal.style.left = sx + 'px'; seal.style.top = (sy + jolt) + 'px'; }
+    if (win.hit && win.fly < 0) { const q = (t - win.hit) / 0.5; if (q < 1) { g.strokeStyle = `rgba(200,60,45,${0.35 * (1 - q)})`; g.lineWidth = 2 * (1 - q) + 0.5; g.beginPath(); g.arc(sx, sy, 34 + q * 30, 0, TAU); g.stroke(); } }
 }
 function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
