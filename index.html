@@ -1142,7 +1142,7 @@ function vividTree(w, h, ox, oy) {
 function startWin(perfect = true) {
     if (tree.dirty) renderTreeCache();
     phase = 'win'; if (perfect) { simVal = similarity(tree); renderMeter(); }
-    const free = !!tree.free, st = free ? 0 : perfect ? 3 : Math.max(1, starsOf(simVal)), beauty = free ? beautyOf(tree).score : 0;
+    const free = !!tree.free, st = free ? 0 : perfect ? 3 : Math.max(1, starsOf(simVal)), bInfo = free ? beautyOf(tree) : null, beauty = free ? bInfo.score : 0, bald = free && bInfo.bald;
     // 整盆（盆+架+树）拍成一张透明图；外发光预先烘一张，播放时只贴图，不逐帧模糊
     const b = tree.box, x0 = Math.max(0, Math.min(U2X(b.x0), ROOT_X - 0.7 * S) - 24), x1 = Math.min(W, Math.max(U2X(b.x1), ROOT_X + 0.7 * S) + 24), y0 = Math.max(0, U2Y(b.y0) - 24), y1 = Math.min(H, TABLE_Y + 6);
     const bw = x1 - x0, bh = y1 - y0, pad = 40, img = document.createElement('canvas'); img.width = (bw + pad * 2) * DPR; img.height = (bh + pad * 2) * DPR;
@@ -1153,7 +1153,7 @@ function startWin(perfect = true) {
     gg.shadowColor = 'rgba(255,208,120,1)'; gg.shadowBlur = 14 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     const seal = sealSpot(z, free ? ['自', '在'] : ['圆', '满']);
-    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free, beauty,
+    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect, free, beauty, bald,
         starAt: 0.6, sealAt: free ? 0.7 : 0.6 + 2 * 0.17 + 0.18, tapAt: free ? 0.7 + 0.75 : perfect ? 0.6 + 2 * 0.17 + 0.18 + 0.75 : 0.6 + 2 * 0.17 + 0.45, sparks: [] };   // 星星哒哒哒连着出，最后一颗刚落定印章就落下
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
@@ -1286,7 +1286,7 @@ function beautyOf(t) {
     analyze(t);
     const N = t.nodes, cs = S * 0.055, r = t.spec.len * S * 0.75, L = N.filter(n => n.alive && n.leaf);
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const n of L) { x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
-    if (!L.length) return { A: 0, score: 10 };
+    if (!L.length) return { A: 0, score: 5, bald: true };
     x0 -= r; y0 -= r; x1 += r; y1 += r;
     const gw = Math.ceil((x1 - x0) / cs) + 1, gh = Math.ceil((y1 - y0) / cs) + 1, grid = new Uint8Array(gw * gh), rc = Math.ceil(r / cs);
     for (const n of L) { const cx = Math.floor((n.x - x0) / cs), cy = Math.floor((n.y - y0) / cs); for (let j = -rc; j <= rc; j++) for (let i = -rc; i <= rc; i++) if (i * i + j * j <= rc * rc) { const X = cx + i, Y = cy + j; if (X >= 0 && Y >= 0 && X < gw && Y < gh) grid[Y * gw + X] = 1; } }
@@ -1309,16 +1309,21 @@ function beautyOf(t) {
     let bare = 0, tot = 0; for (const n of N) if (n.alive && !n.trunk && !n.cut) { tot++; if (!has[n.i]) bare++; }
     const bareS = 1 - clamp(bare / Math.max(1, tot) * 4, 0, 0.7);
     const f = t.fullA ? A / t.fullA : 1, full = f < 0.12 ? f / 0.12 * 0.3 : f < 0.45 ? 0.3 + (f - 0.12) / 0.33 * 0.7 : f <= 0.75 ? 1 : f <= 0.92 ? 1 - (f - 0.75) / 0.17 * 0.75 : 0.1;   // 几乎没修 → 很低
-    const score = Math.round(clamp(100 * (0.25 * edge + 0.15 * layer + 0.12 * bal + 0.13 * bareS + 0.35 * full), 10, 100));
-    return { A, score, parts: { edge, layer, bal, bareS, full, nC, f } };
+    const bald = f < 0.08 || L.length < 18;   // 剪成光杆、或光杆上只剩几片叶子
+    const score = bald ? 5 : Math.round(clamp(100 * (0.25 * edge + 0.15 * layer + 0.12 * bal + 0.13 * bareS + 0.35 * full), 10, 100));
+    return { A, score, bald, parts: { edge, layer, bal, bareS, full, nC, f } };
 }
-const beautyWord = v => v >= 85 ? '上品' : v >= 70 ? '佳作' : v >= 50 ? '小成' : '习作';
-// 卖价：看美观度，再按树种稀有、开花结果加一点
-const priceOf = w => Math.round((5 + 160 * ((w.beauty ?? 50) / 100) ** 3) *   // 越美越值钱，增长很陡（不修直接卖只值十来块）
-     (1 + ((SPEC[w.species] || {}).rar - 1 || 0) * 0.4) * (w.bloom ? 1.2 : 1));
+const beautyWord = v => v >= 85 ? '上品' : v >= 70 ? '佳作' : v >= 50 ? '小成' : v > 5 ? '习作' : '光杆';
+// 卖价：以买树坯的原价为准（直干坯免费，按 30 算）。修得美卖得比原价高，最多 2.5 倍；修丑了比原价还低；剪成光杆只值 2 块
+function priceOf(w) {
+    const b = w.beauty ?? 50; if (w.bald || b <= 5) return 2;
+    const base = Math.max(30, (TRUNK[w.trunk] || {}).price || 0);
+    const m = b < 30 ? 0.3 : b < 60 ? 0.3 + (b - 30) / 30 * 0.7 : 1 + ((b - 60) / 40) ** 1.5 * 1.5;   // 60 分≈原价
+    return Math.max(2, Math.round(base * m * (1 + ((SPEC[w.species] || {}).rar - 1 || 0) * 0.15) * (w.bloom ? 1.1 : 1)));
+}
 // 自由创作的作品：摆进园子（不直接给钱，想换钱就去园子里卖掉）
 function commitFree() {
-    G.garden.unshift({ img: snapshot(330, 390), form: 'free', trunk: tree.form.trunk, species: tree.spec.id, stars: 0, beauty: win.beauty, bloom: !!(tree.bloom || tree.fruit), date: Date.now() }); if (G.garden.length > 30) G.garden.pop();
+    G.garden.unshift({ img: snapshot(330, 390), form: 'free', trunk: tree.form.trunk, species: tree.spec.id, stars: 0, beauty: win.beauty, bald: win.bald, bloom: !!(tree.bloom || tree.fruit), date: Date.now() }); if (G.garden.length > 30) G.garden.pop();
     save(); return { reward: 0 };
 }
 // 记账：星级、金币、图鉴最佳作品、园子
@@ -1445,7 +1450,7 @@ function workCard(i) {
         <h2>${FORM[w.form].name}${T0 ? ' · ' + T0.name : ''}</h2>
         <img src="${w.img}" style="width:100%;max-width:300px;display:block;margin:6px auto;border-radius:16px;box-shadow:0 6px 18px rgba(60,40,20,.18)">
         <div class="sub">${SPEC[w.species].name}${w.bloom ? ' · 开花了 🌸' : ''} · ${free ? `美观 <b>${w.beauty ?? 50}</b> 分（${beautyWord(w.beauty ?? 50)}）` : '★'.repeat(w.stars) + '☆'.repeat(3 - w.stars)}
-        ${free ? '<br><span style="font-size:12px;opacity:.7">卖价看美观度：轮廓干净、分层清楚、重心稳、没有光秃乱枝、修得不多不少，就越值钱</span>' : ''}</div>`);
+        ${free ? `<br><span style="font-size:12px;opacity:.7">${w.bald ? '剪成光杆了，只能当柴卖' : `树坯原价 💰${Math.max(30, (TRUNK[w.trunk] || {}).price || 0)}${(TRUNK[w.trunk] || {}).price ? '' : '（免费坯按 30 算）'}。修得美能卖到原价的 2.5 倍，修丑了就亏本`}</span>` : ''}</div>`);
     $('wBack').onclick = () => gardenCard();
     if (free) { let armed = false; $('wSell').onclick = () => {
         if (!armed) { armed = true; $('wSell').textContent = `确定卖出？💰${price}`; return; }
