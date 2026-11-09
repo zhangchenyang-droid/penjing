@@ -1087,10 +1087,10 @@ function vividTree(w, h, ox, oy) {
     }
     g.putImageData(im, 0, 0); return c;
 }
-function startWin() {
+function startWin(perfect = true) {
     if (tree.dirty) renderTreeCache();
-    phase = 'win'; simVal = similarity(tree); renderMeter();
-    const st = Math.max(1, starsOf(simVal));
+    phase = 'win'; if (perfect) { simVal = similarity(tree); renderMeter(); }
+    const st = perfect ? 3 : Math.max(1, starsOf(simVal));
     // 整盆（盆+架+树）拍成一张透明图；外发光预先烘一张，播放时只贴图，不逐帧模糊
     const b = tree.box, x0 = Math.max(0, Math.min(U2X(b.x0), ROOT_X - 0.7 * S) - 24), x1 = Math.min(W, Math.max(U2X(b.x1), ROOT_X + 0.7 * S) + 24), y0 = Math.max(0, U2Y(b.y0) - 24), y1 = Math.min(H, TABLE_Y + 6);
     const bw = x1 - x0, bh = y1 - y0, pad = 40, img = document.createElement('canvas'); img.width = (bw + pad * 2) * DPR; img.height = (bh + pad * 2) * DPR;
@@ -1101,13 +1101,14 @@ function startWin() {
     gg.shadowColor = 'rgba(255,208,120,1)'; gg.shadowBlur = 14 * DPR * GS; gg.shadowOffsetX = off; gg.drawImage(img, -off, 0, glow.width, glow.height); gg.drawImage(img, -off, 0, glow.width, glow.height);
     const z = clamp(Math.min(W * 0.92 / bw, H * 0.6 / bh), 1, 1.4);
     const seal = sealSpot(z);
-    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st };
+    win = { t: 0, img, glow, pad, seal, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, bw, bh, z, tx: W / 2, ty: H * 0.47, gone: true, fly: -1, st, perfect,
+        starAt: 0.7, sealAt: 0.7 + 3 * 0.3 + 0.25, tapAt: perfect ? 0.7 + 3 * 0.3 + 0.25 + 0.75 : 0.7 + 3 * 0.3 + 0.3, sparks: [] };
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
 }
 function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; winCv.classList.remove('on'); }
 winCv.addEventListener('pointerdown', () => {
-    if (!win || win.fly >= 0 || win.t < 1.25) return;   // 等印章盖完
+    if (!win || win.fly >= 0 || win.t < win.tapAt) return;   // 等星星和印章演完
     audio(); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
     noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
 });
@@ -1176,14 +1177,40 @@ function drawWin(dt) {
     if (ta > 0) {
         const f = tree.form, sp = tree.spec, top = y - win.bh * sc / 2;
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(`${f.name} · ${sp.name}`, W / 2, Math.max(70, top - 34));
-        g.fillStyle = `rgba(255,200,80,${ta})`; g.font = '26px sans-serif'; g.fillText('★'.repeat(win.st) + '☆'.repeat(3 - win.st), W / 2, Math.max(104, top - 2));
-        if (win.fly < 0 && t > 1) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - 1) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
+        g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(`${f.name} · ${sp.name}`, W / 2, Math.max(64, top - 50));
+        drawStars(g, t, Math.max(100, top - 14), fade);
+        if (win.fly < 0 && t > win.tapAt) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - win.tapAt) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
     }
     // 印章跟着放大后的树
     // 放大落定后盖「圆满」印：印章悬着落下 → 压实（咚、整盆一震）→ 抬起，留下印泥
-    if (!win.sealed && t >= 0.8 && win.fly < 0) { win.sealed = t; tone(1200, 0.12, 0.012, 'sine', 0, 900); }
+    if (win.perfect && !win.sealed && t >= win.sealAt && win.fly < 0) { win.sealed = t; tone(1200, 0.12, 0.012, 'sine', 0, 900); }
     if (win.sealed && !win.hit && t >= win.sealed + 0.45) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
+}
+// 星级：一颗一颗出来。拿到的星：转着弹出 + 金色火花迸开 + 一声比一声高；没拿到的只淡淡显出空心
+function starPath(g, cx, cy, R) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? R * 0.45 : R; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); }
+function drawStars(g, t, cy, fade) {
+    const R = 14, gap = 36;
+    for (let i = 0; i < 3; i++) {
+        const t0 = win.starAt + i * 0.3, lt = t - t0; if (lt < 0) continue;
+        const cx = W / 2 + (i - 1) * gap, got = i < win.st;
+        if (!got) { const a = clamp(lt / 0.3, 0, 1) * fade; g.strokeStyle = `rgba(255,220,150,${0.4 * a})`; g.lineWidth = 1.5; starPath(g, cx, cy, R); g.stroke(); continue; }
+        if (!win['s' + i]) {
+            win['s' + i] = 1; tone([784, 988, 1175][i], 0.35, 0.045, 'triangle'); tone([1568, 1976, 2350][i], 0.25, 0.015, 'sine', 0.03);
+            for (let k = 0; k < 10; k++) { const a = k / 10 * TAU + rand(-0.2, 0.2), v = rand(60, 120); win.sparks.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: t, life: rand(0.35, 0.6) }); }
+        }
+        const k = easeOutBack(clamp(lt / 0.35, 0, 1)), sc2 = k * (1 + 0.08 * Math.sin(t * 3 + i)), rot = (1 - clamp(lt / 0.35, 0, 1)) * -1.2;
+        // 落定瞬间的一圈光
+        const q = lt / 0.45; if (q < 1) { g.strokeStyle = `rgba(255,214,120,${0.6 * (1 - q) * fade})`; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, R * (0.8 + q * 1.4), 0, TAU); g.stroke(); }
+        g.save(); g.translate(cx, cy); g.rotate(rot); g.scale(sc2, sc2); g.globalAlpha = fade;
+        g.globalCompositeOperation = 'lighter'; const gl = g.createRadialGradient(0, 0, 0, 0, 0, R * 2); gl.addColorStop(0, 'rgba(255,200,90,0.45)'); gl.addColorStop(1, 'rgba(255,200,90,0)'); g.fillStyle = gl; g.beginPath(); g.arc(0, 0, R * 2, 0, TAU); g.fill(); g.globalCompositeOperation = 'source-over';
+        const fg = g.createLinearGradient(0, -R, 0, R); fg.addColorStop(0, '#fff2b8'); fg.addColorStop(0.5, '#ffcf4a'); fg.addColorStop(1, '#f0a020'); g.fillStyle = fg; starPath(g, 0, 0, R); g.fill();
+        g.strokeStyle = 'rgba(160,90,10,0.6)'; g.lineWidth = 1; g.stroke();
+        g.restore(); g.globalAlpha = 1;
+    }
+    // 火花
+    g.globalCompositeOperation = 'lighter';
+    for (const p of win.sparks) { const a = 1 - (t - p.t) / p.life; if (a <= 0) continue; const d = t - p.t, x = p.x + p.vx * d, y = p.y + p.vy * d + 60 * d * d; g.fillStyle = `rgba(255,220,140,${a * fade})`; g.beginPath(); g.arc(x, y, 1.6 * a + 0.6, 0, TAU); g.fill(); }
+    g.globalCompositeOperation = 'source-over';
 }
 function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = commitWork(win.st), fid = tree.form.id;   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
@@ -1227,18 +1254,10 @@ function finish() {
     if (tree.dirty) renderTreeCache();
     if (growT < 6) { sfx.dull(); popText(W / 2, H * 0.45, '树还小，让它再长一会儿'); return; }
     audio(); simVal = similarity(tree); renderMeter();
-    const st = starsOf(simVal), f = tree.form, sp = tree.spec;
-    if (!st) { sfx.dull(); popText(W / 2, H * 0.45, '还不太像，再修修（完成度至少 55%）', ''); return; }
-    const { reward, firstForm, nextF, img } = commitWork(st);
-    renderHud(); sfx.done(); setTimeout(sfx.coin, 300);
-    phase = 'done';
-    showCard(`<div class="ctop"><button class="btn green" id="cNext">下一盆</button></div>
-        <h2>${f.name} · ${sp.name}</h2><div class="stars">${'★'.repeat(st)}${'☆'.repeat(3 - st)}</div>
-        <img class="work" src="${img}">
-        <div class="sub">完成度 <b>${Math.round(simVal * 100)}%</b>${tree.bloom ? ' · 开花了 🌸' : tree.fruit ? ' · 结果了 🍊' : ''}<br>收入 💰<b>${reward}</b> · 已摆进园子
-        ${firstForm && nextF ? `<br><b style="color:#5aa83e">解锁新造型：${nextF.name}</b>` : ''}</div>`);
-    $('cNext').onclick = () => { clearCele(); setupCard(); };
-    $('ref').classList.add('hidden');
+    if (tree.perfect) return;   // 刚好修满：交给圆满那套演出
+    if (!starsOf(simVal)) { sfx.dull(); popText(W / 2, H * 0.45, '还不太像，再修修（完成度至少 55%）', ''); return; }
+    hitStop = 0.08; tone(523, 0.4, 0.035, 'triangle'); tone(784, 0.6, 0.03, 'triangle', 0.1);
+    startWin(false);   // 没到 100% 也一样变成奖励品飞进园子，只是没有「圆满」印
 }
 
 // ============================================================
