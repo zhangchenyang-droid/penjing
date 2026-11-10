@@ -154,6 +154,16 @@ function noise(dur, freq, vol, delay = 0, q = 1) {
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     s.connect(f).connect(g).connect(AC.destination); s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + 0.05);
 }
+// 手机震动：安卓用 navigator.vibrate；iPhone 的 Safari 不支持它，改用 iOS 18 的「开关」控件：点一下系统开关会有一下轻微的触感
+const haptic = (() => {
+    let last = 0, sw = null;
+    const ios = () => { if (!sw) { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.body.appendChild(l); sw = l; } sw.click(); };
+    return (ms = 10, taps = 1) => {
+        const now = performance.now(); if (now - last < 45) return; last = now;
+        if (navigator.vibrate) { navigator.vibrate(taps > 1 ? Array.from({ length: taps * 2 - 1 }, (_, k) => k % 2 ? 40 : ms) : ms); return; }
+        try { ios(); for (let k = 1; k < taps; k++) setTimeout(ios, k * 70); } catch (e) { }
+    };
+})();
 const sfx = {
     snip() { noise(0.05, rand(3500, 5000), 0.06, 0, 2); tone(2400, 0.03, 0.02, 'square'); },
     rustle(v = 0.03) { noise(0.3, 1800, v, 0, 0.6); noise(0.2, 3200, v * 0.6, 0.05, 0.8); },
@@ -664,7 +674,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     let cutAny = false, count = 0, removed = 0, leafy = 0, cx = 0, cy = 0;
     for (const h of hits) {
         if (!h.alive) continue;
-        if (h.trunk || (h.scaf && !t.free)) { if (T - lastBlunt > 0.6) { lastBlunt = T; sfx.dull(); popText(h.x, h.y - 20, h.trunk ? '主干剪不动' : '这是主枝，留着它'); } continue; }
+        if (h.trunk || (h.scaf && !t.free)) { if (T - lastBlunt > 0.6) { lastBlunt = T; sfx.dull(); haptic(14, 2); popText(h.x, h.y - 20, h.trunk ? '主干剪不动' : '这是主枝，留着它'); } continue; }
         const r = cutSubtree(t, h, vx, vy, 2 + Math.min(4, stroke.cuts + count));
         count++; removed += r.sub.length; leafy += r.sub.filter(n => n.leaf).length; cx += r.sx; cy += r.sy; cutAny = true;
     }
@@ -674,7 +684,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     // 声音和震动：剪下来的越多越厚
     sfx.snip(); if (leafy > 3) sfx.rustle(Math.min(0.09, 0.03 + leafy * 0.002));
     if (removed > 25) tone(110, 0.18, Math.min(0.08, 0.02 + removed * 0.0008), 'sine', 0, 70);
-    if (navigator.vibrate) navigator.vibrate(Math.min(40, 8 + removed / 3));
+    haptic(Math.min(40, 8 + removed / 3));   // 每剪断一刀：轻轻一下，剪得越多越重
     // 树挨一刀：整棵树朝被剪的反方向弹一下，弹簧一样晃几下
     sway.A = Math.min(0.009, sway.A * 0.3 + 0.0007 * Math.sqrt(removed) + 0.0005 * count); sway.t = 0; sway.dir = cx > ROOT_X ? -1 : 1;
     // 完成度立刻重算，剪对冒绿字、剪到叶层冒红字
@@ -683,7 +693,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     // 一刀多枝
     stroke.cuts += count;
     if (stroke.cuts >= 2 && stroke.cuts > stroke.shown) {
-        stroke.shown = stroke.cuts; hitStop = Math.min(0.1, 0.05 + stroke.cuts * 0.01);
+        stroke.shown = stroke.cuts; hitStop = Math.min(0.1, 0.05 + stroke.cuts * 0.01); haptic(30, Math.min(3, stroke.cuts - 1));
         popText(cx, cy - 46, `一刀${'零一两三四五六七八九'[stroke.cuts] || stroke.cuts}枝！`, 'combo');
         [0, 4, 7].slice(0, Math.min(3, stroke.cuts - 1)).forEach((k, i) => tone(880 * Math.pow(2, (k + stroke.cuts) / 12), 0.12, 0.04, 'triangle', i * 0.05));
     }
@@ -762,7 +772,7 @@ function cutPieces(x0, y0, x1, y1, vx, vy) {
         A.vy -= rand(30, 80); A.w += rand(-1.5, 1.5);
         pieces.splice(pieces.indexOf(p), 1, A, B); any = true;
     }
-    if (any) { sfx.snip(); sfx.rustle(0.03); }
+    if (any) { sfx.snip(); sfx.rustle(0.03); haptic(8); }
 }
 // 刮叶子：没剪到枝，但手指扫过的叶子会被刮掉几片（每簇最多掉一半，一划最多十来片）
 function brushLeaves(t, x0, y0, x1, y1, vx, vy) {
@@ -1240,7 +1250,7 @@ function drawWin(dt) {
     // 印章跟着放大后的树
     // 放大落定后盖「圆满」印：印章悬着落下 → 压实（咚、整盆一震）→ 抬起，留下印泥
     if ((win.perfect || win.free) && !win.sealed && t >= win.sealAt && win.fly < 0) { win.sealed = t; tone(1200, 0.12, 0.012, 'sine', 0, 900); }
-    if (win.sealed && !win.hit && t >= win.sealed + 0.45) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); if (navigator.vibrate) navigator.vibrate(30); }
+    if (win.sealed && !win.hit && t >= win.sealed + 0.45) { win.hit = t; tone(85, 0.22, 0.1, 'sine', 0, 55); noise(0.07, 260, 0.06); haptic(40); }
 }
 // 星级：一颗一颗出来。拿到的星：转着弹出 + 金色火花迸开 + 一声比一声高；没拿到的只淡淡显出空心
 function starPath(g, cx, cy, R) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? R * 0.45 : R; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); }
@@ -1251,7 +1261,7 @@ function drawStars(g, t, cy, fade) {
         const cx = W / 2 + (i - 1) * gap, got = i < win.st;
         if (!got) { const a = clamp(lt / 0.3, 0, 1) * fade; g.strokeStyle = `rgba(255,220,150,${0.4 * a})`; g.lineWidth = 1.5; starPath(g, cx, cy, R); g.stroke(); continue; }
         if (!win['s' + i]) {
-            win['s' + i] = 1; tone([784, 988, 1175][i], 0.35, 0.045, 'triangle'); tone([1568, 1976, 2350][i], 0.25, 0.015, 'sine', 0.03);
+            win['s' + i] = 1; haptic(15); tone([784, 988, 1175][i], 0.35, 0.045, 'triangle'); tone([1568, 1976, 2350][i], 0.25, 0.015, 'sine', 0.03);
             for (let k = 0; k < 10; k++) { const a = k / 10 * TAU + rand(-0.2, 0.2), v = rand(60, 120); win.sparks.push({ x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: t, life: rand(0.35, 0.6) }); }
         }
         const k = easeOutBack(clamp(lt / 0.26, 0, 1)), sc2 = k * (1 + 0.08 * Math.sin(t * 3 + i)), rot = (1 - clamp(lt / 0.26, 0, 1)) * -1.2;
@@ -1273,7 +1283,7 @@ function arrive() {
     win.arrived = true; const { reward, firstForm, nextF } = win.free ? commitFree() : commitWork(win.st), fid = tree.form.id;
     const justOpen = starsBefore < FREE_NEED && freeOpen();   // 记账（要拍两张作品照，放在飞到的这一刻，不卡放大动画）
     const gb = $('gardenBtn'); gb.classList.remove('got'); void gb.offsetWidth; gb.classList.add('got');
-    sfx.coin(); if (navigator.vibrate) navigator.vibrate(20); renderHud();
+    sfx.coin(); haptic(20); renderHud();
     popText(W / 2, H * 0.32, win.free ? `摆进园子了 · 可卖 💰${priceOf(G.garden[0])}` : `+💰${reward} · 摆进园子了`, 'big');
     if (firstForm && nextF) setTimeout(() => popText(W / 2, H * 0.4, `解锁新造型：${nextF.name}`, 'big'), 350);
     if (justOpen) setTimeout(() => { popText(W / 2, H * 0.48, '🎨 自由创作解锁了！', 'big'); tone(659, 0.3, 0.04, 'triangle'); tone(988, 0.5, 0.04, 'triangle', 0.12); }, 700);
@@ -1370,11 +1380,11 @@ function finish() {
     if (phase !== 'live') return;
     if (cele && cele.tidyUntil && T < cele.tidyUntil) return;   // 收尾修剪还没剪完
     if (tree.dirty) renderTreeCache();
-    if (growT < 6) { sfx.dull(); popText(W / 2, H * 0.45, '树还小，让它再长一会儿'); return; }
+    if (growT < 6) { sfx.dull(); haptic(10, 2); popText(W / 2, H * 0.45, '树还小，让它再长一会儿'); return; }
     if (tree.free) { audio(); hitStop = 0.08; tone(523, 0.4, 0.035, 'triangle'); tone(784, 0.6, 0.03, 'triangle', 0.1); startWin(false); return; }   // 自由创作：直接收成作品
     audio(); simVal = similarity(tree); renderMeter();
     if (tree.perfect) return;   // 刚好修满：交给圆满那套演出
-    if (!starsOf(simVal)) { sfx.dull(); popText(W / 2, H * 0.45, '还不太像，再修修（完成度至少 55%）', ''); return; }
+    if (!starsOf(simVal)) { sfx.dull(); haptic(10, 2); popText(W / 2, H * 0.45, '还不太像，再修修（完成度至少 55%）', ''); return; }
     hitStop = 0.08; tone(523, 0.4, 0.035, 'triangle'); tone(784, 0.6, 0.03, 'triangle', 0.1);
     startWin(false);   // 没到 100% 也一样变成奖励品飞进园子，只是没有「圆满」印
 }
