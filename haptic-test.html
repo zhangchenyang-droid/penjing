@@ -1,16 +1,24 @@
-<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>震动测试</title>
-<style>body{font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;gap:18px;padding:40px 20px;background:#efe6d6}
-button{font-size:22px;padding:22px 30px;border:none;border-radius:20px;background:#5aa83e;color:#fff;width:100%;max-width:320px}
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>震动测试2</title>
+<style>body{font-family:-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 20px;background:#efe6d6}
+button{font-size:20px;padding:18px 20px;border:none;border-radius:18px;background:#5aa83e;color:#fff;width:100%;max-width:340px}
 #log{font-size:15px;color:#555;text-align:center;line-height:1.7}
-label.vis{font-size:18px;display:flex;gap:10px;align-items:center}</style></head><body>
-<h2>震动测试</h2>
-<button id="a">① 点我（隐藏开关法）</button>
-<button id="b" style="background:#e0a020">② 点我（安卓 vibrate）</button>
-<label class="vis"><input type="checkbox" switch> ③ 直接拨这个系统开关</label>
-<div id="log">iOS 18+ 的 Safari：① 和 ③ 应该都有轻轻一下“嗒”。<br>③ 都没感觉的话，多半是手机设置里关了「系统触感」。</div>
+.hide{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;overflow:hidden}
+#E{position:relative;overflow:hidden}
+#E input{position:absolute;inset:0;width:100%;height:100%;opacity:0.01;margin:0}</style></head><body>
+<h2>震动测试 2</h2>
+<button id="A">A 隐藏(display:none)标签</button>
+<button id="B">B 页面里常驻、几乎透明的标签</button>
+<button id="C">C 直接点开关本身 input.click()</button>
+<button id="D">D 常驻标签 + 按下时就触发</button>
+<button id="E">E 按钮下面垫一个透明的真开关<input type="checkbox" switch></button>
+<label class="vis" style="font-size:18px"><input type="checkbox" switch> F 手拨开关（对照）</label>
+<div id="log">分别点 A~E，告诉我哪几个有“嗒”一下</div>
+<label class="hide" id="Bl"><input type="checkbox" switch id="Bi"></label>
 <script>
-const ios = () => { const l = document.createElement('label'); l.ariaHidden = 'true'; l.style.display = 'none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.head.appendChild(l); l.click(); document.head.removeChild(l); };
-const log = t => document.getElementById('log').innerHTML = t;
-document.getElementById('a').onclick = () => { ios(); log('已触发 ① ' + new Date().toLocaleTimeString()); };
-document.getElementById('b').onclick = () => { log(navigator.vibrate ? (navigator.vibrate(60) ? '已触发 ②' : 'vibrate 被拒绝') : '这台手机不支持 vibrate（iPhone 正常现象）'); };
+const log = t => document.getElementById('log').textContent = t + ' ' + new Date().toLocaleTimeString();
+document.getElementById('A').onclick = () => { const l = document.createElement('label'); l.style.display = 'none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.head.appendChild(l); l.click(); l.remove(); log('A'); };
+document.getElementById('B').onclick = () => { document.getElementById('Bl').click(); log('B'); };
+document.getElementById('C').onclick = () => { document.getElementById('Bi').click(); log('C'); };
+document.getElementById('D').addEventListener('pointerdown', () => { document.getElementById('Bl').click(); log('D'); });
+document.getElementById('E').onclick = () => log('E');
 </script></body></html>
