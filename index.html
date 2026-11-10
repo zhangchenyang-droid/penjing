@@ -167,6 +167,8 @@ const haptic = (() => { let last = 0; return (ms = 10, taps = 1) => {
     navigator.vibrate(taps > 1 ? Array.from({ length: taps * 2 - 1 }, (_, k) => k % 2 ? 40 : ms) : ms);
 }; })();
 const IOS_TAP = !navigator.vibrate;
+// 安卓：点按钮/格子震 20ms——比剪枝（5~12ms）重，按钮要有"按下去"的实感
+document.addEventListener('pointerdown', e => { if (!IOS_TAP && e.target.closest && e.target.closest('.btn, .chip, .tabs button, .garden > div')) haptic(20); }, true);
 function tapHaptics(root = document) {
     if (!IOS_TAP) return;
     root.querySelectorAll('.btn, .chip, .tabs button, .garden > div').forEach(el => {
@@ -684,7 +686,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     let cutAny = false, count = 0, removed = 0, leafy = 0, cx = 0, cy = 0;
     for (const h of hits) {
         if (!h.alive) continue;
-        if (h.trunk || (h.scaf && !t.free)) { if (T - lastBlunt > 0.6) { lastBlunt = T; sfx.dull(); haptic(14, 2); popText(h.x, h.y - 20, h.trunk ? '主干剪不动' : '这是主枝，留着它'); } continue; }
+        if (h.trunk || (h.scaf && !t.free)) { if (T - lastBlunt > 0.6) { lastBlunt = T; sfx.dull(); haptic(10, 2); popText(h.x, h.y - 20, h.trunk ? '主干剪不动' : '这是主枝，留着它'); } continue; }
         const r = cutSubtree(t, h, vx, vy, 2 + Math.min(4, stroke.cuts + count));
         count++; removed += r.sub.length; leafy += r.sub.filter(n => n.leaf).length; cx += r.sx; cy += r.sy; cutAny = true;
     }
@@ -694,7 +696,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     // 声音和震动：剪下来的越多越厚
     sfx.snip(); if (leafy > 3) sfx.rustle(Math.min(0.09, 0.03 + leafy * 0.002));
     if (removed > 25) tone(110, 0.18, Math.min(0.08, 0.02 + removed * 0.0008), 'sine', 0, 70);
-    haptic(Math.min(40, 8 + removed / 3));   // 每剪断一刀：轻轻一下，剪得越多越重
+    haptic(Math.min(12, 5 + removed / 8));   // 每剪断一刀：很轻的一下（比点按钮轻），剪得多略重一点
     // 树挨一刀：整棵树朝被剪的反方向弹一下，弹簧一样晃几下
     sway.A = Math.min(0.009, sway.A * 0.3 + 0.0007 * Math.sqrt(removed) + 0.0005 * count); sway.t = 0; sway.dir = cx > ROOT_X ? -1 : 1;
     // 完成度立刻重算，剪对冒绿字、剪到叶层冒红字
@@ -703,7 +705,7 @@ function cutAlong(t, x0, y0, x1, y1, vx, vy) {
     // 一刀多枝
     stroke.cuts += count;
     if (stroke.cuts >= 2 && stroke.cuts > stroke.shown) {
-        stroke.shown = stroke.cuts; hitStop = Math.min(0.1, 0.05 + stroke.cuts * 0.01); haptic(30, Math.min(3, stroke.cuts - 1));
+        stroke.shown = stroke.cuts; hitStop = Math.min(0.1, 0.05 + stroke.cuts * 0.01); haptic(12, Math.min(3, stroke.cuts - 1));
         popText(cx, cy - 46, `一刀${'零一两三四五六七八九'[stroke.cuts] || stroke.cuts}枝！`, 'combo');
         [0, 4, 7].slice(0, Math.min(3, stroke.cuts - 1)).forEach((k, i) => tone(880 * Math.pow(2, (k + stroke.cuts) / 12), 0.12, 0.04, 'triangle', i * 0.05));
     }
@@ -782,7 +784,7 @@ function cutPieces(x0, y0, x1, y1, vx, vy) {
         A.vy -= rand(30, 80); A.w += rand(-1.5, 1.5);
         pieces.splice(pieces.indexOf(p), 1, A, B); any = true;
     }
-    if (any) { sfx.snip(); sfx.rustle(0.03); haptic(8); }
+    if (any) { sfx.snip(); sfx.rustle(0.03); haptic(5); }
 }
 // 刮叶子：没剪到枝，但手指扫过的叶子会被刮掉几片（每簇最多掉一半，一划最多十来片）
 function brushLeaves(t, x0, y0, x1, y1, vx, vy) {
