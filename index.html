@@ -97,6 +97,10 @@
     .tabs { display: flex; gap: 6px; margin: 4px 0; } .tabs button { flex: 1; border: 2px solid #e6d6b8; background: #fff; border-radius: 12px; padding: 7px 0; font: 800 14px inherit; font-family: inherit; color: #6a5a44; }
     .tabs button.on { background: #5aa83e; border-color: #5aa83e; color: #fff; }
     #cFree.glowy { animation: doneBob 1s ease-in-out infinite; }
+    /* iPhone 触感用的透明系统开关：盖满整个按钮，点按钮其实是点到它 */
+    .btn, .chip, .tabs button, .garden > div { position: relative; }
+    .hsw { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0.01; cursor: pointer; }
+    #winTap { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0.01; z-index: 18; display: none; }
     .chip.fresh, .garden .fresh { animation: fresh 1.2s ease-out 2; }
     @keyframes fresh { 40% { box-shadow: 0 0 0 5px rgba(240, 190, 70, .7); transform: scale(1.06); } }
     @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.6); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 100% { opacity: 0; transform: translate(-50%, -160%); } }
@@ -118,6 +122,7 @@
     <button class="btn green" id="doneBtn">完成</button>
 </div>
 <canvas id="winCv"></canvas>
+<input type="checkbox" switch id="winTap" tabindex="-1" aria-hidden="true">
 <div class="card-bg" id="cardBg"><div class="card" id="card"></div></div>
 
 <script>
@@ -154,17 +159,21 @@ function noise(dur, freq, vol, delay = 0, q = 1) {
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     s.connect(f).connect(g).connect(AC.destination); s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + 0.05);
 }
-// 手机震动：安卓用 navigator.vibrate；iPhone 的 Safari 不支持它，改用 iOS 18 的「开关」控件：点一下系统开关会有一下轻微的触感
-const haptic = (() => {
-    let last = 0, sw = null;
-    // iOS 只在「手指按下/抬起」这类用户操作的当下才肯给触感，滑动中、动画里调用都没反应
-    const ios = () => { const l = document.createElement('label'); l.ariaHidden = 'true'; l.style.display = 'none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.head.appendChild(l); l.click(); document.head.removeChild(l); };
-    return (ms = 10, taps = 1) => {
-        const now = performance.now(); if (now - last < 45) return; last = now;
-        if (navigator.vibrate) { navigator.vibrate(taps > 1 ? Array.from({ length: taps * 2 - 1 }, (_, k) => k % 2 ? 40 : ms) : ms); return; }
-        try { ios(); for (let k = 1; k < taps; k++) setTimeout(ios, k * 70); } catch (e) { }
-    };
-})();
+// 手机震动：安卓用 navigator.vibrate，哪里都能震。
+// iPhone 网页没有震动接口；实测只有「手指真的点到系统开关」才会有触感（代码去拨不算），
+// 所以 iPhone 上只在点按的地方震：每个按钮、卡片格子、收进园子那一下，底下都垫一个透明的系统开关（见 tapHaptics）。剪枝是滑动，iPhone 震不了
+const haptic = (() => { let last = 0; return (ms = 10, taps = 1) => {
+    const now = performance.now(); if (now - last < 45 || !navigator.vibrate) return; last = now;
+    navigator.vibrate(taps > 1 ? Array.from({ length: taps * 2 - 1 }, (_, k) => k % 2 ? 40 : ms) : ms);
+}; })();
+const IOS_TAP = !navigator.vibrate;
+function tapHaptics(root = document) {
+    if (!IOS_TAP) return;
+    root.querySelectorAll('.btn, .chip, .tabs button, .garden > div').forEach(el => {
+        if (el.querySelector(':scope > .hsw')) return;
+        const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); i.className = 'hsw'; i.tabIndex = -1; i.ariaHidden = 'true'; el.appendChild(i);
+    });
+}
 const sfx = {
     snip() { noise(0.05, rand(3500, 5000), 0.06, 0, 2); tone(2400, 0.03, 0.02, 'square'); },
     rustle(v = 0.03) { noise(0.3, 1800, v, 0, 0.6); noise(0.2, 3200, v * 0.6, 0.05, 0.8); },
@@ -1172,12 +1181,14 @@ function startWin(perfect = true) {
     if (winCv.width !== W * DPR || winCv.height !== H * DPR) { winCv.width = W * DPR; winCv.height = H * DPR; } winCv.classList.add('on');
     tone(523, 0.5, 0.04, 'triangle'); tone(659, 0.5, 0.035, 'triangle', 0.08); tone(784, 0.9, 0.04, 'triangle', 0.16); tone(1047, 1.2, 0.03, 'sine', 0.26);
 }
-function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; winCv.classList.remove('on'); }
-winCv.addEventListener('pointerdown', () => {
+function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; $('winTap').style.display = 'none'; winCv.classList.remove('on'); }
+function collectTap() {
     if (!win || win.fly >= 0 || win.t < win.tapAt) return;   // 等星星和印章演完
     audio(); haptic(20); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
-    noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
-});
+    noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760); $('winTap').style.display = 'none';
+}
+winCv.addEventListener('pointerdown', collectTap);
+$('winTap').addEventListener('click', collectTap);   // iPhone：演完后盖一层透明开关，点下去既收进园子又有触感
 function drawWin(dt) {
     if (!win) return;
     win.t += dt; if (win.fly >= 0) win.fly += dt;
@@ -1246,6 +1257,7 @@ function drawWin(dt) {
         g.fillStyle = `rgba(255,236,190,${ta})`; g.font = '900 26px "Songti SC", "STKaiti", serif'; g.fillText(win.free ? `「${win.name}」 · ${sp.name}` : `${f.name} · ${sp.name}`, W / 2, Math.max(64, top - 50));
         if (!win.free) drawStars(g, t, Math.max(100, top - 14), fade);
         else { const q = clamp((t - 0.5) / 0.6, 0, 1), v = Math.round(win.beauty * (1 - (1 - q) ** 3)); g.fillStyle = `rgba(255,214,120,${ta})`; g.font = '900 20px "Songti SC", "STKaiti", serif'; g.fillText(`美观 ${v} · ${beautyWord(v)}`, W / 2, Math.max(100, top - 14)); }
+        if (IOS_TAP && win.fly < 0 && t > win.tapAt && $('winTap').style.display !== 'block') $('winTap').style.display = 'block';
         if (win.fly < 0 && t > win.tapAt) { g.fillStyle = `rgba(255,248,230,${(0.55 + 0.45 * Math.sin(t * 4)) * clamp((t - win.tapAt) / 0.4, 0, 1)})`; g.font = '800 16px sans-serif'; g.fillText('点击任意位置，收进园子', W / 2, Math.min(H - 40, y + win.bh * sc / 2 + 34)); }
     }
     // 印章跟着放大后的树
@@ -1393,7 +1405,7 @@ function finish() {
 // ============================================================
 // 卡片：开局选择 / 图鉴 / 园子
 // ============================================================
-function showCard(html) { $('card').innerHTML = html; $('cardBg').classList.add('show'); }
+function showCard(html) { $('card').innerHTML = html; $('cardBg').classList.add('show'); tapHaptics($('card')); }
 function hideCard() { $('cardBg').classList.remove('show'); }
 $('cardBg').addEventListener('pointerdown', e => { if (e.target === $('cardBg') && phase !== 'setup' && phase !== 'done') hideCard(); });
 // 小图标：造型剪影 / 树种叶色
@@ -1549,8 +1561,7 @@ cvs.addEventListener('pointermove', e => {
     if (tree && phase === 'live') { cutAlong(tree, ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); cutPieces(ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); brushLeaves(tree, ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); }
     ptr = { x: e.clientX, y: e.clientY, t: now }; trail.push({ x: e.clientX, y: e.clientY, t: T });
 });
-const up = () => { if (ptr && stroke && stroke.cuts && !navigator.vibrate) haptic(10, Math.min(2, stroke.cuts));   // iPhone：滑动中震不了，这一划剪到了东西就在抬手时补一下
-    ptr = null; };
+const up = () => { ptr = null; };
 cvs.addEventListener('pointerup', up); cvs.addEventListener('pointercancel', up);
 function drawTrail() {
     trail = trail.filter(p => T - p.t < 0.25); if (trail.length < 2) return;
@@ -1593,7 +1604,7 @@ function frame(now) {
     drawPieces(); drawTrail(); drawWin(dt);
     requestAnimationFrame(frame);
 }
-renderHud();
+renderHud(); tapHaptics();
 if (!G.seen) {
     showCard(`<div class="ctop"><button class="btn green" id="cGo">开始</button></div>
         <div style="font-size:44px">🌳✂️</div><h2>修盆栽</h2>
