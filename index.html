@@ -157,7 +157,8 @@ function noise(dur, freq, vol, delay = 0, q = 1) {
 // 手机震动：安卓用 navigator.vibrate；iPhone 的 Safari 不支持它，改用 iOS 18 的「开关」控件：点一下系统开关会有一下轻微的触感
 const haptic = (() => {
     let last = 0, sw = null;
-    const ios = () => { if (!sw) { const l = document.createElement('label'); l.style.cssText = 'position:fixed;left:-99px;top:0;opacity:0;pointer-events:none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.body.appendChild(l); sw = l; } sw.click(); };
+    // iOS 只在「手指按下/抬起」这类用户操作的当下才肯给触感，滑动中、动画里调用都没反应
+    const ios = () => { const l = document.createElement('label'); l.ariaHidden = 'true'; l.style.display = 'none'; const i = document.createElement('input'); i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); document.head.appendChild(l); l.click(); document.head.removeChild(l); };
     return (ms = 10, taps = 1) => {
         const now = performance.now(); if (now - last < 45) return; last = now;
         if (navigator.vibrate) { navigator.vibrate(taps > 1 ? Array.from({ length: taps * 2 - 1 }, (_, k) => k % 2 ? 40 : ms) : ms); return; }
@@ -1174,7 +1175,7 @@ function startWin(perfect = true) {
 function endWin() { if (win) winG.clearRect(0, 0, winCv.width, winCv.height); win = null; winCv.classList.remove('on'); }
 winCv.addEventListener('pointerdown', () => {
     if (!win || win.fly >= 0 || win.t < win.tapAt) return;   // 等星星和印章演完
-    audio(); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
+    audio(); haptic(20); win.fly = 0; const r = $('gardenBtn').getBoundingClientRect(); win.fx = r.left + r.width / 2; win.fy = r.top + r.height / 2;
     noise(0.35, 1800, 0.035); tone(880, 0.25, 0.025, 'sine', 0, 1760);
 });
 function drawWin(dt) {
@@ -1548,7 +1549,8 @@ cvs.addEventListener('pointermove', e => {
     if (tree && phase === 'live') { cutAlong(tree, ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); cutPieces(ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); brushLeaves(tree, ptr.x, ptr.y, e.clientX, e.clientY, vx, vy); }
     ptr = { x: e.clientX, y: e.clientY, t: now }; trail.push({ x: e.clientX, y: e.clientY, t: T });
 });
-const up = () => { ptr = null; };
+const up = () => { if (ptr && stroke && stroke.cuts && !navigator.vibrate) haptic(10, Math.min(2, stroke.cuts));   // iPhone：滑动中震不了，这一划剪到了东西就在抬手时补一下
+    ptr = null; };
 cvs.addEventListener('pointerup', up); cvs.addEventListener('pointercancel', up);
 function drawTrail() {
     trail = trail.filter(p => T - p.t < 0.25); if (trail.length < 2) return;
